@@ -70,10 +70,6 @@ invest any effort in that.
 * Python >= 3.4 (for [asyncio](https://docs.python.org/3/library/asyncio.html))
 * [Python evdev binding](https://pypi.python.org/pypi/evdev) >= 0.7.0
 
-I'll probably replace the separate uinput dependency with the evdev binding's
-internal uinput binding. It's a little less elegant but it makes event
-pass-through easier.
-
 ## Limitations
 
 * Obviously, it's currently completely hard-coded for my specific use-case,
@@ -81,7 +77,6 @@ pass-through easier.
 
 ## TODO
 
-* Device mirroring for unchanged events
 * Generic remapping
 * Proper setup.py support
 * Proper daemon behaviour

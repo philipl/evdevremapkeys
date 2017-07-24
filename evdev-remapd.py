@@ -31,22 +31,25 @@ from evdev import InputDevice, UInput, categorize, ecodes
 
 
 @asyncio.coroutine
-def handle_events(device, udev):
+def handle_events(device, mirror_dev, remap_dev):
     while True:
         events = yield from device.async_read()
         for event in events:
             if event.type == ecodes.EV_KEY and \
                event.code == ecodes.BTN_RIGHT and \
                event.value == 1:
-                do_raise(udev)
+                do_raise(remap_dev)
             elif event.type == ecodes.EV_KEY and \
                 event.code == ecodes.BTN_EXTRA and \
                 event.value == 1:
-                do_lower(udev)
+                do_lower(remap_dev)
             elif event.type == ecodes.EV_KEY and \
                 event.code == ecodes.BTN_FORWARD and \
                 event.value == 1:
-                do_scale(udev)
+                do_scale(remap_dev)
+            else:
+                mirror_dev.write_event(event)
+                mirror_dev.syn()
 
 
 def do_raise(udev):
@@ -83,11 +86,13 @@ def find_mouse():
 
 
 def run_loop():
-    device = find_mouse()
-    if device is None:
+    mouse = find_mouse()
+    if mouse is None:
         print("Can't find mouse")
         return
-    device.grab()
+    mouse.grab()
+
+    mirror_dev = UInput.from_device(mouse, name='remap-mouse')
 
     cap = {
         ecodes.EV_KEY: [ecodes.KEY_A,
@@ -95,9 +100,9 @@ def run_loop():
                         ecodes.KEY_Z,
                         ecodes.KEY_LEFTMETA]
     }
-    udev = UInput(cap, name='remap-device')
+    remap_dev = UInput(cap, name='remap-device')
 
-    asyncio.async(handle_events(device, udev))
+    asyncio.ensure_future(handle_events(mouse, mirror_dev, remap_dev))
     loop = asyncio.get_event_loop()
     loop.run_forever()
 
