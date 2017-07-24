@@ -24,7 +24,10 @@
 
 
 import asyncio
+from concurrent.futures import CancelledError
+import functools
 from pathlib import Path
+import signal
 
 
 from evdev import InputDevice, UInput, categorize, ecodes
@@ -85,6 +88,14 @@ def find_mouse():
     return None
 
 
+@asyncio.coroutine
+def shutdown(loop):
+    tasks = [task for task in asyncio.Task.all_tasks() if task is not
+             asyncio.tasks.Task.current_task()]
+    list(map(lambda task: task.cancel(), tasks))
+    results = yield from asyncio.gather(*tasks, return_exceptions=True)
+    loop.stop()
+
 def run_loop():
     mouse = find_mouse()
     if mouse is None:
@@ -104,7 +115,18 @@ def run_loop():
 
     asyncio.ensure_future(handle_events(mouse, mirror_dev, remap_dev))
     loop = asyncio.get_event_loop()
-    loop.run_forever()
+    loop.add_signal_handler(signal.SIGTERM,
+                            functools.partial(asyncio.ensure_future,
+                                              shutdown(loop)))
+
+    try:
+        loop.run_forever()
+    except KeyboardInterrupt:
+        loop.remove_signal_handler(signal.SIGTERM)
+        loop.run_until_complete(asyncio.ensure_future(shutdown(loop)))
+    finally:
+        loop.close()
+        mouse.ungrab()
 
 
 if __name__ == '__main__':
