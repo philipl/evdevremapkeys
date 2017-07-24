@@ -27,8 +27,7 @@ import asyncio
 from pathlib import Path
 
 
-from evdev import InputDevice, categorize, ecodes
-import uinput
+from evdev import InputDevice, UInput, categorize, ecodes
 
 
 @asyncio.coroutine
@@ -51,24 +50,27 @@ def handle_events(device, udev):
 
 
 def do_raise(udev):
-    udev.emit_combo([
-        uinput.KEY_LEFTMETA,
-        uinput.KEY_A,
-    ])
+    udev.write(ecodes.EV_KEY, ecodes.KEY_LEFTMETA, 1)
+    udev.write(ecodes.EV_KEY, ecodes.KEY_A, 1)
+    udev.write(ecodes.EV_KEY, ecodes.KEY_A, 0)
+    udev.write(ecodes.EV_KEY, ecodes.KEY_LEFTMETA, 0)
+    udev.syn()
 
 
 def do_lower(udev):
-    udev.emit_combo([
-        uinput.KEY_LEFTMETA,
-        uinput.KEY_Z,
-    ])
+    udev.write(ecodes.EV_KEY, ecodes.KEY_LEFTMETA, 1)
+    udev.write(ecodes.EV_KEY, ecodes.KEY_Z, 1)
+    udev.write(ecodes.EV_KEY, ecodes.KEY_Z, 0)
+    udev.write(ecodes.EV_KEY, ecodes.KEY_LEFTMETA, 0)
+    udev.syn()
 
 
 def do_scale(udev):
-    udev.emit_combo([
-        uinput.KEY_LEFTMETA,
-        uinput.KEY_S,
-    ])
+    udev.write(ecodes.EV_KEY, ecodes.KEY_LEFTMETA, 1)
+    udev.write(ecodes.EV_KEY, ecodes.KEY_S, 1)
+    udev.write(ecodes.EV_KEY, ecodes.KEY_S, 0)
+    udev.write(ecodes.EV_KEY, ecodes.KEY_LEFTMETA, 0)
+    udev.syn()
 
 
 def find_mouse():
@@ -87,12 +89,13 @@ def run_loop():
         return
     device.grab()
 
-    udev = uinput.Device([
-        uinput.KEY_A,
-        uinput.KEY_S,
-        uinput.KEY_Z,
-        uinput.KEY_LEFTMETA,
-    ])
+    cap = {
+        ecodes.EV_KEY: [ecodes.KEY_A,
+                        ecodes.KEY_S,
+                        ecodes.KEY_Z,
+                        ecodes.KEY_LEFTMETA]
+    }
+    udev = UInput(cap, name='remap-device')
 
     asyncio.async(handle_events(device, udev))
     loop = asyncio.get_event_loop()
