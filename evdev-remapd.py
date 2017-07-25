@@ -32,51 +32,33 @@ import signal
 
 from evdev import InputDevice, UInput, categorize, ecodes
 
+remappings = {
+    ecodes.BTN_RIGHT: [ecodes.KEY_LEFTMETA, ecodes.KEY_A],
+    ecodes.BTN_EXTRA: [ecodes.KEY_LEFTMETA, ecodes.KEY_Z],
+    ecodes.BTN_FORWARD: [ecodes.KEY_LEFTMETA, ecodes.KEY_W],
+    ecodes.BTN_MIDDLE: [ecodes.BTN_RIGHT],
+    ecodes.BTN_SIDE: [ecodes.BTN_MIDDLE],
+}
+
 
 @asyncio.coroutine
-def handle_events(device, mirror_dev, remap_dev):
+def handle_events(device, remap_dev):
     while True:
-        events = yield from device.async_read()
+        events = yield from device.async_read()  # noqa
         for event in events:
             if event.type == ecodes.EV_KEY and \
-               event.code == ecodes.BTN_RIGHT and \
-               event.value == 1:
-                do_raise(remap_dev)
-            elif event.type == ecodes.EV_KEY and \
-                event.code == ecodes.BTN_EXTRA and \
-                event.value == 1:
-                do_lower(remap_dev)
-            elif event.type == ecodes.EV_KEY and \
-                event.code == ecodes.BTN_FORWARD and \
-                event.value == 1:
-                do_scale(remap_dev)
+               event.code in remappings:
+                remap_event(remap_dev, event)
             else:
-                mirror_dev.write_event(event)
-                mirror_dev.syn()
+                remap_dev.write_event(event)
+                remap_dev.syn()
 
 
-def do_raise(udev):
-    udev.write(ecodes.EV_KEY, ecodes.KEY_LEFTMETA, 1)
-    udev.write(ecodes.EV_KEY, ecodes.KEY_A, 1)
-    udev.write(ecodes.EV_KEY, ecodes.KEY_A, 0)
-    udev.write(ecodes.EV_KEY, ecodes.KEY_LEFTMETA, 0)
-    udev.syn()
-
-
-def do_lower(udev):
-    udev.write(ecodes.EV_KEY, ecodes.KEY_LEFTMETA, 1)
-    udev.write(ecodes.EV_KEY, ecodes.KEY_Z, 1)
-    udev.write(ecodes.EV_KEY, ecodes.KEY_Z, 0)
-    udev.write(ecodes.EV_KEY, ecodes.KEY_LEFTMETA, 0)
-    udev.syn()
-
-
-def do_scale(udev):
-    udev.write(ecodes.EV_KEY, ecodes.KEY_LEFTMETA, 1)
-    udev.write(ecodes.EV_KEY, ecodes.KEY_S, 1)
-    udev.write(ecodes.EV_KEY, ecodes.KEY_S, 0)
-    udev.write(ecodes.EV_KEY, ecodes.KEY_LEFTMETA, 0)
-    udev.syn()
+def remap_event(remap_dev, event):
+    for code in remappings[event.code]:
+        event.code = code
+        remap_dev.write_event(event)
+    remap_dev.syn()
 
 
 def find_mouse():
@@ -96,6 +78,7 @@ def shutdown(loop):
     results = yield from asyncio.gather(*tasks, return_exceptions=True)
     loop.stop()
 
+
 def run_loop():
     mouse = find_mouse()
     if mouse is None:
@@ -103,17 +86,17 @@ def run_loop():
         return
     mouse.grab()
 
-    mirror_dev = UInput.from_device(mouse, name='remap-mouse')
+    caps = mouse.capabilities()
+    caps[ecodes.EV_KEY].extend([ecodes.KEY_A,
+                                ecodes.KEY_S,
+                                ecodes.KEY_W,
+                                ecodes.KEY_Z,
+                                ecodes.KEY_LEFTMETA])
+    del caps[ecodes.EV_SYN]
 
-    cap = {
-        ecodes.EV_KEY: [ecodes.KEY_A,
-                        ecodes.KEY_S,
-                        ecodes.KEY_Z,
-                        ecodes.KEY_LEFTMETA]
-    }
-    remap_dev = UInput(cap, name='remap-device')
+    remap_dev = UInput(caps, name='remap-mouse')
 
-    asyncio.ensure_future(handle_events(mouse, mirror_dev, remap_dev))
+    asyncio.ensure_future(handle_events(mouse, remap_dev))
     loop = asyncio.get_event_loop()
     loop.add_signal_handler(signal.SIGTERM,
                             functools.partial(asyncio.ensure_future,
