@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 #
-# MIT License
-#
 # Copyright (c) 2017 Philip Langdale
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -50,23 +48,23 @@ devices = [
 
 
 @asyncio.coroutine
-def handle_events(device, remap_dev, remappings):
+def handle_events(input, output, remappings):
     while True:
-        events = yield from device.async_read()  # noqa
+        events = yield from input.async_read()  # noqa
         for event in events:
             if event.type == ecodes.EV_KEY and \
                event.code in remappings:
-                remap_event(remap_dev, event, remappings)
+                remap_event(output, event, remappings)
             else:
-                remap_dev.write_event(event)
-                remap_dev.syn()
+                output.write_event(event)
+                output.syn()
 
 
-def remap_event(remap_dev, event, remappings):
+def remap_event(output, event, remappings):
     for code in remappings[event.code]:
         event.code = code
-        remap_dev.write_event(event)
-    remap_dev.syn()
+        output.write_event(event)
+    output.syn()
 
 
 def find_input(name):
@@ -90,7 +88,7 @@ def shutdown(loop):
 def register_device(device):
     input = find_input(device['input_name'])
     if input is None:
-        raise Error("Can't find mouse")
+        raise NameError("Can't find input device")
     input.grab()
 
     caps = input.capabilities()
