@@ -1,4 +1,4 @@
-# evdev-remapd
+# evdevremapkeys
 
 A daemon to remap key events on linux input devices
 
