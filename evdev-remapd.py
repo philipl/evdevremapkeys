@@ -32,41 +32,49 @@ import signal
 
 from evdev import InputDevice, UInput, categorize, ecodes
 
-remappings = {
-    ecodes.BTN_RIGHT: [ecodes.KEY_LEFTMETA, ecodes.KEY_A],
-    ecodes.BTN_EXTRA: [ecodes.KEY_LEFTMETA, ecodes.KEY_Z],
-    ecodes.BTN_FORWARD: [ecodes.KEY_LEFTMETA, ecodes.KEY_W],
-    ecodes.BTN_MIDDLE: [ecodes.BTN_RIGHT],
-    ecodes.BTN_SIDE: [ecodes.BTN_MIDDLE],
-}
+
+# TODO: Move into a json configuration file
+devices = [
+    {
+        'input_name': 'Kingsis Peripherals Evoluent VerticalMouse 4',
+        'output_name': 'remap-mouse',
+        'remappings': {
+            ecodes.BTN_RIGHT: [ecodes.KEY_LEFTMETA, ecodes.KEY_A],
+            ecodes.BTN_EXTRA: [ecodes.KEY_LEFTMETA, ecodes.KEY_Z],
+            ecodes.BTN_FORWARD: [ecodes.KEY_LEFTMETA, ecodes.KEY_W],
+            ecodes.BTN_MIDDLE: [ecodes.BTN_RIGHT],
+            ecodes.BTN_SIDE: [ecodes.BTN_MIDDLE]
+        }
+    }
+]
 
 
 @asyncio.coroutine
-def handle_events(device, remap_dev):
+def handle_events(device, remap_dev, remappings):
     while True:
         events = yield from device.async_read()  # noqa
         for event in events:
             if event.type == ecodes.EV_KEY and \
                event.code in remappings:
-                remap_event(remap_dev, event)
+                remap_event(remap_dev, event, remappings)
             else:
                 remap_dev.write_event(event)
                 remap_dev.syn()
 
 
-def remap_event(remap_dev, event):
+def remap_event(remap_dev, event, remappings):
     for code in remappings[event.code]:
         event.code = code
         remap_dev.write_event(event)
     remap_dev.syn()
 
 
-def find_mouse():
+def find_input(name):
     p = Path('/dev/input')
     for d in p.glob('event*'):
-        device = InputDevice(d.as_posix())
-        if device.name == 'Kingsis Peripherals Evoluent VerticalMouse 4':
-            return device
+        input = InputDevice(d.as_posix())
+        if input.name == name:
+            return input
     return None
 
 
@@ -79,24 +87,30 @@ def shutdown(loop):
     loop.stop()
 
 
-def run_loop():
-    mouse = find_mouse()
-    if mouse is None:
-        print("Can't find mouse")
-        return
-    mouse.grab()
+def register_device(device):
+    input = find_input(device['input_name'])
+    if input is None:
+        raise Error("Can't find mouse")
+    input.grab()
 
-    caps = mouse.capabilities()
+    caps = input.capabilities()
     # EV_SYN is automatically added to uinput devices
     del caps[ecodes.EV_SYN]
 
+    remappings = device['remappings']
     extended = set(caps[ecodes.EV_KEY])
     [extended.update(keys) for keys in remappings.values()]
     caps[ecodes.EV_KEY] = list(extended)
 
-    remap_dev = UInput(caps, name='remap-mouse')
+    output = UInput(caps, name=device['output_name'])
 
-    asyncio.ensure_future(handle_events(mouse, remap_dev))
+    asyncio.ensure_future(handle_events(input, output, remappings))
+
+
+def run_loop():
+    for device in devices:
+        register_device(device)
+
     loop = asyncio.get_event_loop()
     loop.add_signal_handler(signal.SIGTERM,
                             functools.partial(asyncio.ensure_future,
@@ -109,7 +123,6 @@ def run_loop():
         loop.run_until_complete(asyncio.ensure_future(shutdown(loop)))
     finally:
         loop.close()
-        mouse.ungrab()
 
 
 if __name__ == '__main__':
