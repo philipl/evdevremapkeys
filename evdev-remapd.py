@@ -87,12 +87,12 @@ def run_loop():
     mouse.grab()
 
     caps = mouse.capabilities()
-    caps[ecodes.EV_KEY].extend([ecodes.KEY_A,
-                                ecodes.KEY_S,
-                                ecodes.KEY_W,
-                                ecodes.KEY_Z,
-                                ecodes.KEY_LEFTMETA])
+    # EV_SYN is automatically added to uinput devices
     del caps[ecodes.EV_SYN]
+
+    extended = set(caps[ecodes.EV_KEY])
+    [extended.update(keys) for keys in remappings.values()]
+    caps[ecodes.EV_KEY] = list(extended)
 
     remap_dev = UInput(caps, name='remap-mouse')
 
