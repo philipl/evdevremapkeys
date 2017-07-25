@@ -1,10 +1,10 @@
 # evdev-remapd
 
-A daemon to remap events on linux input devices
+A daemon to remap key events on linux input devices
 
 ## Motivation
 
-The remapping of input events is an problem, and one that has been solved
+The remapping of input key events is an problem, and one that has been solved
 at many levels over the years. On a traditional X11 desktop, the usual way
 to do this is with xbindkeys; it's simple and effective and you shouldn't
 try and write something different.
@@ -61,9 +61,10 @@ it too limiting to rely on:
 * It's doesn't look actively maintained; it solved whatever problem the author
   originally had, and that was it.
 
-Having said all that, if you care about joystick related remapping, and
-especially axis remapping, it's probably a better choice, and I'm not going to
-invest any effort in that.
+Having said all that, it has a set of capabilities to handle remappings that
+are not from keys to other keys - particuarly creating virtual joystick axes
+from key events. If you care about those capabilities, you should use evmapd.
+I'm not going to expand beyond key to key remappings.
 
 ## Requirements
 
