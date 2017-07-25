@@ -70,14 +70,10 @@ I'm not going to expand beyond key to key remappings.
 
 * Python >= 3.4 (for [asyncio](https://docs.python.org/3/library/asyncio.html))
 * [Python evdev binding](https://pypi.python.org/pypi/evdev) >= 0.7.0
-
-## Limitations
-
-* Obviously, it's currently completely hard-coded for my specific use-case,
-  which means hard-coded device detection and remapped events.
+* [pyxdg](https://pypi.python.org/pypi/pyxdg) > 0.25
+* [PyYAML](https://pypi.python.org/pypi/PyYAML) >= 3.12
 
 ## TODO
 
-* Generic remapping
 * Proper setup.py support
 * Proper daemon behaviour

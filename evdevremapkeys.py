@@ -29,22 +29,8 @@ import signal
 
 
 from evdev import InputDevice, UInput, categorize, ecodes
-
-
-# TODO: Move into a json configuration file
-devices = [
-    {
-        'input_name': 'Kingsis Peripherals Evoluent VerticalMouse 4',
-        'output_name': 'remap-mouse',
-        'remappings': {
-            ecodes.BTN_RIGHT: [ecodes.KEY_LEFTMETA, ecodes.KEY_A],
-            ecodes.BTN_EXTRA: [ecodes.KEY_LEFTMETA, ecodes.KEY_Z],
-            ecodes.BTN_FORWARD: [ecodes.KEY_LEFTMETA, ecodes.KEY_W],
-            ecodes.BTN_MIDDLE: [ecodes.BTN_RIGHT],
-            ecodes.BTN_SIDE: [ecodes.BTN_MIDDLE]
-        }
-    }
-]
+from xdg import BaseDirectory
+import yaml
 
 
 @asyncio.coroutine
@@ -67,6 +53,31 @@ def remap_event(output, event, remappings):
     output.syn()
 
 
+def load_config():
+    conf_path = None
+    for dir in BaseDirectory.load_config_paths('evdevremapkeys'):
+        conf_path = Path(dir) / 'config.yaml'
+        if conf_path.is_file():
+            break
+
+    if conf_path is None:
+        raise NameError('No config.yaml found')
+
+    with open(conf_path.as_posix(), 'r') as fd:
+        config = yaml.safe_load(fd)
+        for device in config['devices']:
+            device['remappings'] = resolve_ecodes(device['remappings'])
+
+    return config
+
+
+def resolve_ecodes(by_name):
+    by_id = {}
+    for key, values in by_name.items():
+        by_id[ecodes.ecodes[key]] = [ecodes.ecodes[value] for value in values]
+    return by_id
+
+
 def find_input(name):
     p = Path('/dev/input')
     for d in p.glob('event*'):
@@ -74,15 +85,6 @@ def find_input(name):
         if input.name == name:
             return input
     return None
-
-
-@asyncio.coroutine
-def shutdown(loop):
-    tasks = [task for task in asyncio.Task.all_tasks() if task is not
-             asyncio.tasks.Task.current_task()]
-    list(map(lambda task: task.cancel(), tasks))
-    results = yield from asyncio.gather(*tasks, return_exceptions=True)
-    loop.stop()
 
 
 def register_device(device):
@@ -105,8 +107,18 @@ def register_device(device):
     asyncio.ensure_future(handle_events(input, output, remappings))
 
 
+@asyncio.coroutine
+def shutdown(loop):
+    tasks = [task for task in asyncio.Task.all_tasks() if task is not
+             asyncio.tasks.Task.current_task()]
+    list(map(lambda task: task.cancel(), tasks))
+    results = yield from asyncio.gather(*tasks, return_exceptions=True)
+    loop.stop()
+
+
 def run_loop():
-    for device in devices:
+    config = load_config()
+    for device in config['devices']:
         register_device(device)
 
     loop = asyncio.get_event_loop()

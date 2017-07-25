@@ -1,0 +1,17 @@
+devices:
+- input_name: Kingsis Peripherals Evoluent VerticalMouse 4
+  output_name: remap-mouse
+  remappings:
+    BTN_RIGHT:
+    - KEY_LEFTMETA
+    - KEY_A
+    BTN_EXTRA:
+    - KEY_LEFTMETA
+    - KEY_Z
+    BTN_FORWARD:
+    - KEY_LEFTMETA
+    - KEY_W
+    BTN_MIDDLE:
+    - BTN_RIGHT
+    BTN_SIDE:
+    - BTN_MIDDLE
