@@ -21,6 +21,7 @@
 # SOFTWARE.
 
 
+import argparse
 import asyncio
 from concurrent.futures import CancelledError
 import functools
@@ -53,15 +54,19 @@ def remap_event(output, event, remappings):
     output.syn()
 
 
-def load_config():
+def load_config(config_override):
     conf_path = None
-    for dir in BaseDirectory.load_config_paths('evdevremapkeys'):
-        conf_path = Path(dir) / 'config.yaml'
-        if conf_path.is_file():
-            break
-
-    if conf_path is None:
-        raise NameError('No config.yaml found')
+    if config_override is None:
+        for dir in BaseDirectory.load_config_paths('evdevremapkeys'):
+            conf_path = Path(dir) / 'config.yaml'
+            if conf_path.is_file():
+                break
+        if conf_path is None:
+            raise NameError('No config.yaml found')
+    else:
+        conf_path = Path(config_override)
+        if not conf_path.is_file():
+            raise NameError('Cannot open %s' % config_override)
 
     with open(conf_path.as_posix(), 'r') as fd:
         config = yaml.safe_load(fd)
@@ -116,8 +121,8 @@ def shutdown(loop):
     loop.stop()
 
 
-def run_loop():
-    config = load_config()
+def run_loop(args):
+    config = load_config(args.config_file)
     for device in config['devices']:
         register_device(device)
 
@@ -136,4 +141,7 @@ def run_loop():
 
 
 if __name__ == '__main__':
-    run_loop()
+    parser = argparse.ArgumentParser(description='Re-bind keys for input devices')
+    parser.add_argument('-f', '--config-file', help='Config file that overrides default location')
+    args = parser.parse_args()
+    run_loop(args)
