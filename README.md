@@ -69,6 +69,7 @@ I'm not going to expand beyond key to key remappings.
 ## Requirements
 
 * Python >= 3.4 (for [asyncio](https://docs.python.org/3/library/asyncio.html))
+* [python-daemon](https://pypi.python.org/pypi/python-daemon) >= 2.1.2
 * [Python evdev binding](https://pypi.python.org/pypi/evdev) >= 0.7.0
 * [pyxdg](https://pypi.python.org/pypi/pyxdg) > 0.25
 * [PyYAML](https://pypi.python.org/pypi/PyYAML) >= 3.12
@@ -76,4 +77,4 @@ I'm not going to expand beyond key to key remappings.
 ## TODO
 
 * Proper setup.py support
-* Proper daemon behaviour
+* Full daemon behaviour (pidfiles, logging, etc)

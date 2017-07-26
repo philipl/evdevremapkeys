@@ -29,6 +29,7 @@ from pathlib import Path
 import signal
 
 
+import daemon
 from evdev import InputDevice, UInput, categorize, ecodes
 from xdg import BaseDirectory
 import yaml
@@ -142,6 +143,13 @@ def run_loop(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Re-bind keys for input devices')
-    parser.add_argument('-f', '--config-file', help='Config file that overrides default location')
+    parser.add_argument('-d', '--daemon',
+                        help='Run as a daemon', action='store_true')
+    parser.add_argument('-f', '--config-file',
+                        help='Config file that overrides default location')
     args = parser.parse_args()
-    run_loop(args)
+    if args.daemon:
+        with daemon.DaemonContext():
+            run_loop(args)
+    else:
+        run_loop(args)
