@@ -30,6 +30,7 @@ import signal
 
 
 import daemon
+import evdev
 from evdev import InputDevice, UInput, categorize, ecodes
 from xdg import BaseDirectory
 import yaml
@@ -84,10 +85,9 @@ def resolve_ecodes(by_name):
     return by_id
 
 
-def find_input(name):
-    p = Path('/dev/input')
-    for d in p.glob('event*'):
-        input = InputDevice(d.as_posix())
+def find_input(device):
+    devices = [InputDevice(fn) for fn in evdev.list_devices()];
+    for input in devices:
         if input.name == name:
             return input
     return None
@@ -141,14 +141,23 @@ def run_loop(args):
         loop.close()
 
 
+def list_devices():
+    devices = [InputDevice(fn) for fn in evdev.list_devices()];
+    for device in reversed(devices):
+        print('%s:\t"%s" | "%s"' % (device.fn, device.phys, device.name))
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Re-bind keys for input devices')
     parser.add_argument('-d', '--daemon',
                         help='Run as a daemon', action='store_true')
     parser.add_argument('-f', '--config-file',
                         help='Config file that overrides default location')
+    parser.add_argument('-l', '--list-devices', action='store_true',
+                        help='List input devices by name and physical address')
     args = parser.parse_args()
-    if args.daemon:
+    if args.list_devices:
+        list_devices()
+    elif args.daemon:
         with daemon.DaemonContext():
             run_loop(args)
     else:
