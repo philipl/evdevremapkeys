@@ -15,3 +15,11 @@ devices:
     - BTN_RIGHT
     BTN_SIDE:
     - BTN_MIDDLE
+- input_name: 'KINESIS FREESTYLE KB800 KB800 Kinesis Freestyle'
+  input_phys: 'usb-0000:00:14.0-3.3/input0'
+  output_name: remap-kbd
+  remappings:
+    KEY_LEFTCTRL:
+    - KEY_CAPSLOCK
+    KEY_CAPSLOCK:
+    - KEY_LEFTCTRL

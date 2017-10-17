@@ -86,15 +86,27 @@ def resolve_ecodes(by_name):
 
 
 def find_input(device):
+    name = device.get('input_name', None);
+    phys = device.get('input_phys', None);
+    fn = device.get('input_fn', None);
+
+    if name is None and phys is None and fn is None:
+        raise NameError('Devices must be identified by at least one of "input_name", "input_phys", or "input_fn"');
+
     devices = [InputDevice(fn) for fn in evdev.list_devices()];
     for input in devices:
-        if input.name == name:
-            return input
+        if name != None and input.name != name:
+            continue
+        if phys != None and input.phys != phys:
+            continue
+        if fn != None and input.fn != fn:
+            continue
+        return input
     return None
 
 
 def register_device(device):
-    input = find_input(device['input_name'])
+    input = find_input(device)
     if input is None:
         raise NameError("Can't find input device")
     input.grab()
