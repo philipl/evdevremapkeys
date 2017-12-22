@@ -38,7 +38,6 @@ import yaml
 
 @asyncio.coroutine
 def handle_events(input, output, remappings, combination_remappings):
-    print(combination_remappings)
     down_keys = set()
     while True:
         events = yield from input.async_read()  # noqa
