@@ -37,16 +37,37 @@ import yaml
 
 
 @asyncio.coroutine
-def handle_events(input, output, remappings):
+def handle_events(input, output, remappings, combination_remappings):
+    print(combination_remappings)
+    down_keys = set()
     while True:
         events = yield from input.async_read()  # noqa
         for event in events:
             if event.type == ecodes.EV_KEY and \
+               event.code in [ecodes.KEY_LEFTCTRL, ecodes.KEY_CAPSLOCK,]:
+                # combination keys
+                if event.value == 1:
+                    # key down
+                    down_keys.add(event.code)
+                elif event.value == 0:
+                    # key up
+                    down_keys.remove(event.code)
+            match_combination, after_keys = match_combination_remapping(event.code, down_keys, combination_remappings)
+            if event.type == ecodes.EV_KEY and match_combination:
+                remap_event(output, event, {event.code: after_keys})
+            elif event.type == ecodes.EV_KEY and \
                event.code in remappings:
                 remap_event(output, event, remappings)
             else:
                 output.write_event(event)
                 output.syn()
+
+
+def match_combination_remapping(code, down_keys, combination_remappings):
+    for before_keys, after_keys in combination_remappings:
+        if down_keys and set(before_keys) - down_keys == {code}:
+            return (True, after_keys)
+    return (False, -1)
 
 
 def remap_event(output, event, remappings):
@@ -74,6 +95,7 @@ def load_config(config_override):
         config = yaml.safe_load(fd)
         for device in config['devices']:
             device['remappings'] = resolve_ecodes(device['remappings'])
+            device['combination_remappings'] = resolve_ecodes_combination(device['combination_remappings'])
 
     return config
 
@@ -82,6 +104,18 @@ def resolve_ecodes(by_name):
     by_id = {}
     for key, values in by_name.items():
         by_id[ecodes.ecodes[key]] = [ecodes.ecodes[value] for value in values]
+    return by_id
+
+
+def resolve_ecodes_combination(mappings):
+    """
+    @returns [([before_code_1, ...], [after_code_1, ...]), ...]
+    """
+    by_id = []
+    for mapping in mappings:
+        before_key_codes = [ecodes.ecodes[k] for k in mapping['before']]
+        after_key_codes = [ecodes.ecodes[k] for k in mapping['after']]
+        by_id.append((before_key_codes, after_key_codes))
     return by_id
 
 
@@ -117,12 +151,12 @@ def register_device(device):
 
     remappings = device['remappings']
     extended = set(caps[ecodes.EV_KEY])
-    [extended.update(keys) for keys in remappings.values()]
+    [extended.update(keys) for keys in remappings.values() if "+" not in keys]
     caps[ecodes.EV_KEY] = list(extended)
 
     output = UInput(caps, name=device['output_name'])
 
-    asyncio.ensure_future(handle_events(input, output, remappings))
+    asyncio.ensure_future(handle_events(input, output, remappings, device.get('combination_remappings', [])))
 
 
 @asyncio.coroutine
