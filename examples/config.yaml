@@ -23,3 +23,9 @@ devices:
     - KEY_CAPSLOCK
     KEY_CAPSLOCK:
     - KEY_LEFTCTRL
+  combination_remappings:
+    - before:
+      - KEY_CAPSLOCK
+      - KEY_N
+      after:
+      - KEY_DOWN
