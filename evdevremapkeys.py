@@ -45,12 +45,14 @@ def handle_events(input, output, remappings, user, commands):
         for event in events:
             mapped = False
 
-            if event.type == ecodes.EV_KEY and \
+            if remappings is not None and \
+               event.type == ecodes.EV_KEY and \
                event.code in remappings:
                 mapped = True
                 remap_event(output, event, remappings)
 
-            if event.type == ecodes.EV_KEY and \
+            if commands is not None and \
+               event.type == ecodes.EV_KEY and \
                event.code in commands:
                 mapped = True
                 if event.value == evdev.events.KeyEvent.key_down or\
@@ -73,12 +75,13 @@ def execute_command(event, user, commands):
     for command in commands[event.code]:
         newpid = os.fork()
         if newpid == 0:
-            gid = pwd.getpwnam(user).pw_gid
-            uid = pwd.getpwnam(user).pw_uid
-            #group id needs to be set before the user id,
-            #otherwise the permissions are dropped too soon
-            os.setgid(gid)
-            os.setuid(uid)
+            if user is not None:
+                gid = pwd.getpwnam(user).pw_gid
+                uid = pwd.getpwnam(user).pw_uid
+                #group id needs to be set before the user id,
+                #otherwise the permissions are dropped too soon
+                os.setgid(gid)
+                os.setuid(uid)
             os.execl('/bin/sh', '/bin/sh', '-c', command)
 
 
@@ -99,23 +102,27 @@ def load_config(config_override):
     with open(conf_path.as_posix(), 'r') as fd:
         config = yaml.safe_load(fd)
         for device in config['devices']:
-            device['remappings'] = resolve_ecodes_remappings(device['remappings'])
-            device['commands'] = resolve_ecodes_commands(device['commands'])
+            if 'remappings' in device:
+                device['remappings'] = resolve_ecodes_remappings(device['remappings'])
+            if 'commands' in device:
+                device['commands'] = resolve_ecodes_commands(device['commands'])
 
     return config
 
 
 def resolve_ecodes_remappings(by_name):
     by_id = {}
-    for key, values in by_name.items():
-        by_id[ecodes.ecodes[key]] = [ecodes.ecodes[value] for value in values]
+    if by_name is not None:
+        for key, values in by_name.items():
+            by_id[ecodes.ecodes[key]] = [ecodes.ecodes[value] for value in values]
     return by_id
 
 
 def resolve_ecodes_commands(by_name):
     by_id = {}
-    for key, values in by_name.items():
-        by_id[ecodes.ecodes[key]] = values;
+    if by_name is not None:
+        for key, values in by_name.items():
+            by_id[ecodes.ecodes[key]] = values;
     return by_id
 
 
@@ -149,9 +156,9 @@ def register_device(device):
     # EV_SYN is automatically added to uinput devices
     del caps[ecodes.EV_SYN]
 
-    remappings = device['remappings']
-    user = device['command_user']
-    commands = device['commands']
+    remappings = device.get('remappings', None);
+    user = device.get('command_user', None);
+    commands = device.get('commands', None);
 
     extended = set(caps[ecodes.EV_KEY])
     [extended.update(keys) for keys in remappings.values()]
