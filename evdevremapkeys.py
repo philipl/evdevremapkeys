@@ -28,6 +28,7 @@ import functools
 from pathlib import Path
 import signal
 import os
+import pwd
 
 
 import daemon
@@ -38,7 +39,7 @@ import yaml
 
 
 @asyncio.coroutine
-def handle_events(input, output, remappings, commands):
+def handle_events(input, output, remappings, user, commands):
     while True:
         events = yield from input.async_read()  # noqa
         for event in events:
@@ -54,7 +55,7 @@ def handle_events(input, output, remappings, commands):
                 mapped = True
                 if event.value == evdev.events.KeyEvent.key_down or\
                    event.value == evdev.events.KeyEvent.key_hold:
-                 execute_command(event, commands)
+                 execute_command(event, user, commands)
 
             if not mapped:
                 output.write_event(event)
@@ -68,10 +69,16 @@ def remap_event(output, event, remappings):
     output.syn()
 
 
-def execute_command(event, commands):
+def execute_command(event, user, commands):
     for command in commands[event.code]:
         newpid = os.fork()
         if newpid == 0:
+            gid = pwd.getpwnam(user).pw_gid
+            uid = pwd.getpwnam(user).pw_uid
+            #group id needs to be set before the user id,
+            #otherwise the permissions are dropped too soon
+            os.setgid(gid)
+            os.setuid(uid)
             os.execl('/bin/sh', '/bin/sh', '-c', command)
 
 
@@ -143,6 +150,7 @@ def register_device(device):
     del caps[ecodes.EV_SYN]
 
     remappings = device['remappings']
+    user = device['command_user']
     commands = device['commands']
 
     extended = set(caps[ecodes.EV_KEY])
@@ -151,7 +159,7 @@ def register_device(device):
 
     output = UInput(caps, name=device['output_name'])
 
-    asyncio.ensure_future(handle_events(input, output, remappings, commands))
+    asyncio.ensure_future(handle_events(input, output, remappings, user, commands))
 
 
 @asyncio.coroutine
