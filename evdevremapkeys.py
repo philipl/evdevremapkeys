@@ -27,6 +27,7 @@ from concurrent.futures import CancelledError
 import functools
 from pathlib import Path
 import signal
+import os
 
 
 import daemon
@@ -66,9 +67,13 @@ def remap_event(output, event, remappings):
         output.write_event(event)
     output.syn()
 
+
 def execute_command(event, commands):
     for command in commands[event.code]:
-        print(command)
+        newpid = os.fork()
+        if newpid == 0:
+            os.execl('/bin/sh', '/bin/sh', '-c', command)
+
 
 def load_config(config_override):
     conf_path = None
@@ -167,6 +172,9 @@ def run_loop(args):
     loop.add_signal_handler(signal.SIGTERM,
                             functools.partial(asyncio.ensure_future,
                                               shutdown(loop)))
+
+    #prevent defunct processes
+    signal.signal(signal.SIGCHLD, signal.SIG_IGN)
 
     try:
         loop.run_forever()
