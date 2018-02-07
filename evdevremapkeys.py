@@ -37,14 +37,25 @@ import yaml
 
 
 @asyncio.coroutine
-def handle_events(input, output, remappings):
+def handle_events(input, output, remappings, commands):
     while True:
         events = yield from input.async_read()  # noqa
         for event in events:
+            mapped = False
+
             if event.type == ecodes.EV_KEY and \
                event.code in remappings:
+                mapped = True
                 remap_event(output, event, remappings)
-            else:
+
+            if event.type == ecodes.EV_KEY and \
+               event.code in commands:
+                mapped = True
+                if event.value == evdev.events.KeyEvent.key_down or\
+                   event.value == evdev.events.KeyEvent.key_hold:
+                 execute_command(event, commands)
+
+            if not mapped:
                 output.write_event(event)
                 output.syn()
 
@@ -55,6 +66,9 @@ def remap_event(output, event, remappings):
         output.write_event(event)
     output.syn()
 
+def execute_command(event, commands):
+    for command in commands[event.code]:
+        print(command)
 
 def load_config(config_override):
     conf_path = None
@@ -73,15 +87,23 @@ def load_config(config_override):
     with open(conf_path.as_posix(), 'r') as fd:
         config = yaml.safe_load(fd)
         for device in config['devices']:
-            device['remappings'] = resolve_ecodes(device['remappings'])
+            device['remappings'] = resolve_ecodes_remappings(device['remappings'])
+            device['commands'] = resolve_ecodes_commands(device['commands'])
 
     return config
 
 
-def resolve_ecodes(by_name):
+def resolve_ecodes_remappings(by_name):
     by_id = {}
     for key, values in by_name.items():
         by_id[ecodes.ecodes[key]] = [ecodes.ecodes[value] for value in values]
+    return by_id
+
+
+def resolve_ecodes_commands(by_name):
+    by_id = {}
+    for key, values in by_name.items():
+        by_id[ecodes.ecodes[key]] = values;
     return by_id
 
 
@@ -116,13 +138,15 @@ def register_device(device):
     del caps[ecodes.EV_SYN]
 
     remappings = device['remappings']
+    commands = device['commands']
+
     extended = set(caps[ecodes.EV_KEY])
     [extended.update(keys) for keys in remappings.values()]
     caps[ecodes.EV_KEY] = list(extended)
 
     output = UInput(caps, name=device['output_name'])
 
-    asyncio.ensure_future(handle_events(input, output, remappings))
+    asyncio.ensure_future(handle_events(input, output, remappings, commands))
 
 
 @asyncio.coroutine
