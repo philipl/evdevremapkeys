@@ -39,7 +39,7 @@ import yaml
 
 
 @asyncio.coroutine
-def handle_events(input, output, remappings, user, commands):
+def handle_events(input, output, remappings, user, commands, passunmapped):
     while True:
         events = yield from input.async_read()  # noqa
         for event in events:
@@ -59,7 +59,7 @@ def handle_events(input, output, remappings, user, commands):
                    event.value == evdev.events.KeyEvent.key_hold:
                  execute_command(event, user, commands)
 
-            if not mapped:
+            if passunmapped and not mapped:
                 output.write_event(event)
                 output.syn()
 
@@ -159,6 +159,7 @@ def register_device(device):
     remappings = device.get('remappings', None);
     user = device.get('command_user', None);
     commands = device.get('commands', None);
+    passunmapped = device.get('pass_unmapped', True);
 
     extended = set(caps[ecodes.EV_KEY])
     [extended.update(keys) for keys in remappings.values()]
@@ -166,7 +167,7 @@ def register_device(device):
 
     output = UInput(caps, name=device['output_name'])
 
-    asyncio.ensure_future(handle_events(input, output, remappings, user, commands))
+    asyncio.ensure_future(handle_events(input, output, remappings, user, commands, passunmapped))
 
 
 @asyncio.coroutine
