@@ -1,0 +1,45 @@
+devices:
+- input_name: 'Compx 2.4G Receiver'
+  input_fn: '/dev/input/event7'
+  output_name: remap-mouse
+  remappings:
+    # Map right button to double click
+    BTN_RIGHT:
+    - code: BTN_LEFT
+      value: [1, 0] # EV_KEY events - 1: key down, 0: key up
+      repeat: true
+      count: 2
+    # Map side buttons to vertical scroll
+    # Scroll event is repeated as long as button is kept pressed.
+    BTN_EXTRA:
+    - code: REL_WHEEL
+      type: EV_REL  # change event type
+      repeat: true
+      rate: 0.3  # repeat rate in seconds (defaults to 0.1)
+      value: 1   # EV_REL events - value signifies relative movement (ie. -3 could scroll down by three lines)
+    BTN_SIDE:
+    - code: REL_WHEEL
+      type: EV_REL
+      repeat: true
+      value: -1
+- input_name: 'AT Translated Set 2 keyboard'
+  input_fn: '/dev/input/event4'
+  output_name: remap-kbd
+  remappings:
+    # Emits predefined number of key strokes
+    KEY_LEFTSHIFT:
+    - code: KEY_A
+      value: [1,0]
+      repeat: true
+      count: 6
+    # Same as above
+    KEY_RIGHTSHIFT:
+    - code: KEY_A
+      value: [1,0,1,0]
+      repeat: true
+      count: 3
+    # Emits double key strokes as long as ALT is pressed
+    KEY_LEFTALT:
+    - code: KEY_A
+      value: [1,0,1,0]
+      repeat: true

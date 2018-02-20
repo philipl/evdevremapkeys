@@ -1,0 +1,19 @@
+devices:
+- input_name: ''
+  input_fn: ''
+  output_name: ''
+  remappings:
+    KEY_A:
+    - KEY_A
+    KEY_B:
+    - code: KEY_A
+    KEY_C:
+    - code: KEY_A
+      value: 1
+    KEY_D:
+    - code: KEY_A
+      value: [1,2]
+    KEY_E:
+    - code: KEY_A
+      param1: p1
+      param2: p2
