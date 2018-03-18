@@ -38,5 +38,9 @@ setup(
                       'evdev >= 0.7.0',
                       'pyxdg >= 0.25',
                       'PyYAML >= 3.12'],
-    scripts=['evdevremapkeys.py'],
+    entry_points={
+        'console_scripts': [
+            'evdevremapkeys = evdevremapkeys.evdevremapkeys:main',
+        ],
+    },
 )

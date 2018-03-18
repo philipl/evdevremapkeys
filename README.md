@@ -76,5 +76,4 @@ I'm not going to expand beyond key to key remappings.
 
 ## TODO
 
-* Proper setup.py support
 * Full daemon behaviour (pidfiles, logging, etc)

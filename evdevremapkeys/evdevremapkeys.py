@@ -318,7 +318,7 @@ def read_events(req_device):
                 print("Unknown key (%s) has been released." % event.code)
 
 
-if __name__ == '__main__':
+def main():
     parser = argparse.ArgumentParser(description='Re-bind keys for input devices')
     parser.add_argument('-d', '--daemon',
                         help='Run as a daemon', action='store_true')
@@ -339,3 +339,7 @@ if __name__ == '__main__':
             run_loop(args)
     else:
         run_loop(args)
+
+if __name__ == '__main__':
+    main()
+
