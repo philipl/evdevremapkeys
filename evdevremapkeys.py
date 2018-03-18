@@ -23,7 +23,6 @@
 
 import argparse
 import asyncio
-from concurrent.futures import CancelledError
 import functools
 from pathlib import Path
 import signal
@@ -31,7 +30,7 @@ import signal
 
 import daemon
 import evdev
-from evdev import InputDevice, UInput, categorize, ecodes
+from evdev import ecodes, InputDevice, UInput
 from xdg import BaseDirectory
 import yaml
 
@@ -86,20 +85,21 @@ def resolve_ecodes(by_name):
 
 
 def find_input(device):
-    name = device.get('input_name', None);
-    phys = device.get('input_phys', None);
-    fn = device.get('input_fn', None);
+    name = device.get('input_name', None)
+    phys = device.get('input_phys', None)
+    fn = device.get('input_fn', None)
 
     if name is None and phys is None and fn is None:
-        raise NameError('Devices must be identified by at least one of "input_name", "input_phys", or "input_fn"');
+        raise NameError('Devices must be identified by at least one ' +
+                        'of "input_name", "input_phys", or "input_fn"')
 
-    devices = [InputDevice(fn) for fn in evdev.list_devices()];
+    devices = [InputDevice(fn) for fn in evdev.list_devices()]
     for input in devices:
-        if name != None and input.name != name:
+        if name is not None and input.name != name:
             continue
-        if phys != None and input.phys != phys:
+        if phys is not None and input.phys != phys:
             continue
-        if fn != None and input.fn != fn:
+        if fn is not None and input.fn != fn:
             continue
         return input
     return None
@@ -130,7 +130,7 @@ def shutdown(loop):
     tasks = [task for task in asyncio.Task.all_tasks() if task is not
              asyncio.tasks.Task.current_task()]
     list(map(lambda task: task.cancel(), tasks))
-    results = yield from asyncio.gather(*tasks, return_exceptions=True)
+    yield from asyncio.gather(*tasks, return_exceptions=True)
     loop.stop()
 
 
@@ -154,9 +154,10 @@ def run_loop(args):
 
 
 def list_devices():
-    devices = [InputDevice(fn) for fn in evdev.list_devices()];
+    devices = [InputDevice(fn) for fn in evdev.list_devices()]
     for device in reversed(devices):
         print('%s:\t"%s" | "%s"' % (device.fn, device.phys, device.name))
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Re-bind keys for input devices')
