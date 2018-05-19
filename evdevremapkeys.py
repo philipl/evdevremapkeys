@@ -36,7 +36,7 @@ import yaml
 
 DEFAULT_RATE = .1  # seconds
 repeat_tasks = {}
-
+remapped_tasks = {}
 
 @asyncio.coroutine
 def handle_events(input, output, remappings):
@@ -71,7 +71,8 @@ def remap_event(output, event, remappings):
         event.type = remapping.get('type', None) or event.type
         values = remapping.get('value', None) or [event.value]
         repeat = remapping.get('repeat', False)
-        if not repeat:
+        delay = remapping.get('delay', False)
+        if not repeat and not delay:
             for value in values:
                 event.value = value
                 output.write_event(event)
@@ -80,22 +81,34 @@ def remap_event(output, event, remappings):
             key_down = event.value is 1
             key_up = event.value is 0
             count = remapping.get('count', 0)
+
             if not (key_up or key_down):
                 return
+            if delay:
+                if original_code not in remapped_tasks or remapped_tasks[original_code] == 0:
+                    if key_down:
+                        remapped_tasks[original_code] = count
+                else:
+                    if key_down:
+                        remapped_tasks[original_code] -= 1
 
-            # count > 0  - ignore key-up events
-            # count is 0 - repeat until key-up occurs
-            ignore_key_up = count > 0
+                if remapped_tasks[original_code] == count:
+                    output.write_event(event)
+                    output.syn()
+            elif repeat:
+                # count > 0  - ignore key-up events
+                # count is 0 - repeat until key-up occurs
+                ignore_key_up = count > 0
 
-            if ignore_key_up and key_up:
-                return
-            rate = remapping.get('rate', DEFAULT_RATE)
-            repeat_task = repeat_tasks.pop(original_code, None)
-            if repeat_task:
-                repeat_task.cancel()
-            if key_down:
-                repeat_tasks[original_code] = asyncio.ensure_future(
-                    repeat_event(event, rate, count, values, output))
+                if ignore_key_up and key_up:
+                    return
+                rate = remapping.get('rate', DEFAULT_RATE)
+                repeat_task = repeat_tasks.pop(original_code, None)
+                if repeat_task:
+                    repeat_task.cancel()
+                if key_down:
+                    repeat_tasks[original_code] = asyncio.ensure_future(
+                        repeat_event(event, rate, count, values, output))
 
 
 # Parses yaml config file and outputs normalized configuration.
@@ -115,10 +128,15 @@ def remap_event(output, event, remappings):
 #                         # be applied in sequence.
 #                         # Defaults to the value of received event.
 #        'repeat': True,  # Repeat key/button code [optional, default:False]
-#        'rate': 0.2,     # Repeat rate in seconds [optional, default:0.1]_
-#        'count': 3       # Repeat counter [optional, default:0]
+#        'delay': True,   # Delay key/button output [optional, default:False]
+#        'rate': 0.2,     # Repeat rate in seconds [optional, default:0.1]
+#        'count': 3       # Repeat/Delay counter [optional, default:0]
+#                         # For repeat:
 #                         # If count is 0 it will repeat until key/button is depressed
 #                         # If count > 0 it will repeat specified number of times
+#                         # For delay:
+#                         # Will suppress key/button output x times before execution [x = count]
+#                         # Ex: count = 1 will execute key press every other time
 #      }]
 #    }
 #  }]
