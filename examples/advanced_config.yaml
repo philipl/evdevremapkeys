@@ -22,6 +22,10 @@ devices:
       type: EV_REL
       repeat: true
       value: -1
+    REL_WHEEL:
+    - code: BTN_RIGHT
+      delay: true
+      count: 4   # send BTN_RIGHT and then skip the next 4 events
 - input_name: 'AT Translated Set 2 keyboard'
   input_fn: '/dev/input/event4'
   output_name: remap-kbd
