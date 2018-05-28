@@ -129,7 +129,7 @@ def remap_event(output, event, remappings):
 #                         # Defaults to the value of received event.
 #        'repeat': True,  # Repeat key/button code [optional, default:False]
 #        'delay': True,   # Delay key/button output [optional, default:False]
-#        'rate': 0.2,     # Repeat rate in seconds [optional, default:0.1]_
+#        'rate': 0.2,     # Repeat rate in seconds [optional, default:0.1]
 #        'count': 3       # Repeat/Delay counter [optional, default:0]
 #                         # For repeat:
 #                         # If count is 0 it will repeat until key/button is depressed
