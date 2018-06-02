@@ -288,29 +288,32 @@ def run_loop(args):
 def list_devices():
     devices = [InputDevice(fn) for fn in evdev.list_devices()]
     for device in reversed(devices):
-        print('%s:\t"%s" | "%s"' % (device.fn, device.phys, device.name))
+        yield [device.fn, device.phys, device.name]
 
-def read_events(device):
-    devices = evdev.list_devices()
-    device = '/dev/input/event' + str(device)
-    if device in devices:
-        device = evdev.InputDevice(device)
-        print(device)
-        print("To stop, press Ctrl-C")
+def read_events(req_device):
+    for device in list_devices():
+        # Look in all 3 identifiers + event number
+        if req_device in device or req_device == device[0].replace("/dev/input/event", ""):
+            found = evdev.InputDevice(device[0])
 
-        for event in device.read_loop():
-            try:
-                if event.type == evdev.ecodes.EV_KEY:
-                    categorized = evdev.categorize(event)
-                    if categorized.keystate == 1:
-                        print("Key pressed: %s (%s)" % (categorized.keycode, categorized.scancode))
-            except KeyError:
-                if event.value:
-                    print("Unknown key (%s) has been pressed." % event.code)
-                else:
-                    print("Unknown key (%s) has been released." % event.code)
-    else:
-        print("Device not found. \nPlease use --list-devices option to view a list of available devices.")
+    if 'found' not in locals():
+        print("Device not found. \nPlease use --list-devices to view a list of available devices.")
+        return
+
+    print(found)
+    print("To stop, press Ctrl-C")
+
+    for event in found.read_loop():
+        try:
+            if event.type == evdev.ecodes.EV_KEY:
+                categorized = evdev.categorize(event)
+                if categorized.keystate == 1:
+                    print("Key pressed: %s (%s)" % (categorized.keycode, categorized.scancode))
+        except KeyError:
+            if event.value:
+                print("Unknown key (%s) has been pressed." % event.code)
+            else:
+                print("Unknown key (%s) has been released." % event.code)
 
 
 if __name__ == '__main__':
@@ -321,12 +324,12 @@ if __name__ == '__main__':
                         help='Config file that overrides default location')
     parser.add_argument('-l', '--list-devices', action='store_true',
                         help='List input devices by name and physical address')
-    parser.add_argument('-e', '--read-events', metavar='EVENT_NUM',
-                        help='Read events from a certain input device')
+    parser.add_argument('-e', '--read-events', metavar='EVENT_ID',
+                        help='Read events from an input device by either name, physical address or number.')
 
     args = parser.parse_args()
     if args.list_devices:
-        list_devices()
+        print("\n".join(['%s:\t"%s" | "%s' % (fn, phys, name) for (fn, phys, name) in list_devices()]))
     elif args.read_events:
         read_events(args.read_events)
     elif args.daemon:
