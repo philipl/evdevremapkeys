@@ -308,7 +308,9 @@ def read_events(req_device):
             if event.type == evdev.ecodes.EV_KEY:
                 categorized = evdev.categorize(event)
                 if categorized.keystate == 1:
-                    print("Key pressed: %s (%s)" % (categorized.keycode, categorized.scancode))
+                    keycode = categorized.keycode if type(categorized.keycode) is str else \
+                            " | ".join(categorized.keycode)
+                    print("Key pressed: %s (%s)" % (keycode, categorized.scancode))
         except KeyError:
             if event.value:
                 print("Unknown key (%s) has been pressed." % event.code)
