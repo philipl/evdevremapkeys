@@ -17,3 +17,18 @@ devices:
     - code: KEY_A
       param1: p1
       param2: p2
+    KEY_F:
+    - code: KEY_A
+      type: EV_REL
+      complex_param:
+        duration: .2
+        value: 1
+        complex_param2:
+          duration: .2
+          value: 1
+          code: [BTN_LEFT, BTN_RIGHT]
+          repeat: true
+          type: EV_REL
+        code: BTN_LEFT
+        repeat: true
+        type: EV_REL

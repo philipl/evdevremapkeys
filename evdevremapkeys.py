@@ -35,8 +35,12 @@ from xdg import BaseDirectory
 import yaml
 
 DEFAULT_RATE = .1  # seconds
+DEFAULT_LONG_PRESS_DURATION = .2  # seconds
+KEY_DOWN = 1
+KEY_UP = 0
 repeat_tasks = {}
 remapped_tasks = {}
+long_press_tasks = {}
 
 @asyncio.coroutine
 def handle_events(input, output, remappings):
@@ -52,64 +56,114 @@ def handle_events(input, output, remappings):
 
 
 @asyncio.coroutine
-def repeat_event(event, rate, count, values, output):
+def repeat_event(event, rate, count, codes, values, output):
     if count == 0:
         count = -1
     while count is not 0:
         count -= 1
-        for value in values:
-            event.value = value
+        write_output(codes, values, event, output)
+        yield from asyncio.sleep(rate)
+
+@asyncio.coroutine
+def long_press_event(long_press, event, original_code, output):
+    long_press_duration = long_press.get('duration', DEFAULT_LONG_PRESS_DURATION)
+    long_press_value = long_press.get('value', [KEY_DOWN, KEY_UP])
+    long_press_code = long_press.get('code', [])
+    if type(long_press_code) is not list:
+        long_press_code = [long_press_code]
+    long_press_type = long_press.get('type', None)
+    repeat = long_press.get('repeat', False)
+    rate = long_press.get('rate', DEFAULT_RATE)
+    count = 1 if not repeat else long_press.get('count', 0)
+    yield from asyncio.sleep(long_press_duration)
+    event.type = long_press_type if long_press_type else event.type
+    repeat_tasks[original_code] = asyncio.ensure_future(repeat_event(event, rate, count, long_press_code, long_press_value, output))
+
+def write_output(codes, values, event, output):
+    for value in values:
+        event.value = value
+        for code in codes:
+            event.code = code
             output.write_event(event)
             output.syn()
-        yield from asyncio.sleep(rate)
 
 
 def remap_event(output, event, remappings):
     for remapping in remappings[event.code]:
         original_code = event.code
-        event.code = remapping['code']
+        codes = remapping.get('code', [])
+        if type(codes) is not list:
+            codes = [codes]
         event.type = remapping.get('type', None) or event.type
-        values = remapping.get('value', None) or [event.value]
         repeat = remapping.get('repeat', False)
         delay = remapping.get('delay', False)
-        if not repeat and not delay:
-            for value in values:
-                event.value = value
-                output.write_event(event)
-                output.syn()
+        long_press = remapping.get('long_press', None)
+        if not (repeat or delay or long_press):
+            values = remapping.get('value', [event.value])
+            write_output(codes, values, event, output)
         else:
-            key_down = event.value is 1
-            key_up = event.value is 0
-            count = remapping.get('count', 0)
+            is_key_down = event.value is KEY_DOWN
+            is_key_up = event.value is KEY_UP
 
-            if not (key_up or key_down):
+            if not (is_key_up or is_key_down):
                 return
             if delay:
+                count = remapping.get('count', 0)
+                event.code = remapping['code']
                 if original_code not in remapped_tasks or remapped_tasks[original_code] == 0:
-                    if key_down:
+                    if is_key_down:
                         remapped_tasks[original_code] = count
                 else:
-                    if key_down:
+                    if is_key_down:
                         remapped_tasks[original_code] -= 1
 
                 if remapped_tasks[original_code] == count:
                     output.write_event(event)
                     output.syn()
+            elif long_press:
+                if is_key_down:
+                    # start long press timer
+                    long_press_tasks[original_code] = asyncio.ensure_future(
+                        long_press_event(long_press, event, original_code, output))
+                if is_key_up:
+                    long_press_task = long_press_tasks.get(original_code, None)
+                    if long_press_task and long_press_task.done():
+                        # long press already handled; just cleanup
+                        del long_press_tasks[original_code]
+                    if long_press_task and not long_press_task.done():
+                        # handle short press
+                        long_press_task.cancel()
+                        if repeat:
+                            rate = remapping.get('rate', DEFAULT_RATE)
+                            values = remapping.get('value', [KEY_DOWN, KEY_UP])
+                            count = remapping.get('count', 1)
+                            asyncio.ensure_future(
+                                repeat_event(event, rate, count, codes, values, output))
+                            pass
+                        else:
+                            del long_press_tasks[original_code]
+                            write_output(codes, [KEY_DOWN, KEY_UP], event, output) # simulate key press (key_down/key_up)
+                    # cleanup any repeating task started during long press handling
+                    repeat_task = repeat_tasks.pop(original_code, None)
+                    if repeat_task:
+                        repeat_task.cancel()
+
             elif repeat:
+                count = remapping.get('count', 0)
                 # count > 0  - ignore key-up events
                 # count is 0 - repeat until key-up occurs
                 ignore_key_up = count > 0
 
-                if ignore_key_up and key_up:
+                if ignore_key_up and is_key_up:
                     return
                 rate = remapping.get('rate', DEFAULT_RATE)
                 repeat_task = repeat_tasks.pop(original_code, None)
                 if repeat_task:
                     repeat_task.cancel()
-                if key_down:
+                if is_key_down:
+                    values = remapping.get('value', [KEY_DOWN, KEY_UP])
                     repeat_tasks[original_code] = asyncio.ensure_future(
-                        repeat_event(event, rate, count, values, output))
-
+                        repeat_event(event, rate, count, codes, values, output))
 
 # Parses yaml config file and outputs normalized configuration.
 # Sample output:
@@ -177,7 +231,7 @@ def load_config(config_override):
 #     'BTN_EXTRA': [
 #         {'code': 'KEY_Z'},
 #         {'code': 'KEY_A'},
-#         {'code': 'KEY_X', 'value': [1]}
+#         {'code': 'KEY_X', 'value': 1}
 #         {'code': 'KEY_Y', 'value': [1,0]]}
 #     ]
 # }}
@@ -189,29 +243,28 @@ def normalize_config(remappings):
             if type(mapping) is str:
                 new_mappings.append({'code': mapping})
             else:
-                normalize_value(mapping)
                 new_mappings.append(mapping)
         norm[key] = new_mappings
     return norm
 
+def resolve_ecodes(remappings):
+    new_remappings =  {ecodes.ecodes[key]: mappings
+            for key, mappings in remappings.items()}
+    resolve_inner_ecodes(new_remappings)
+    return new_remappings
 
-def normalize_value(mapping):
-    value = mapping.get('value')
-    if value is None or type(value) is list:
-        return
-    mapping['value'] = [mapping['value']]
-
-
-def resolve_ecodes(by_name):
-    def resolve_mapping(mapping):
-        if 'code' in mapping:
-            mapping['code'] = ecodes.ecodes[mapping['code']]
-        if 'type' in mapping:
-            mapping['type'] = ecodes.ecodes[mapping['type']]
-        return mapping
-    return {ecodes.ecodes[key]: list(map(resolve_mapping, mappings))
-            for key, mappings in by_name.items()}
-
+# Recursively replace ecodes found within nested structure.
+def resolve_inner_ecodes(node):
+    for node, key in traverse(node):
+        value = node[key]
+        if key == 'code' and type(value) is list:
+            node[key] = [ecodes.ecodes[code] for code in value]
+        elif key == 'code' and type(value) is not list:
+            node[key] = ecodes.ecodes[value]
+        elif key == 'type' and type(value):
+            node[key] = ecodes.ecodes[value]
+        elif key == 'value' and type(value) is not list:
+            node[key] = [value]
 
 def find_input(device):
     name = device.get('input_name', None)
@@ -233,6 +286,27 @@ def find_input(device):
         return input
     return None
 
+# Accumulates list of values found in 'code' elements.
+def get_all_codes(node):
+    out = set()
+    for node, key in traverse(node):
+        value = node[key]
+        if key == 'code' and type(value) is list:
+            out.update(value)
+        elif key == 'code' and type(value) is not list:
+            out.add(value)
+    return out
+
+# Iterates nested structure and emits (node,key) events for each node.
+def traverse(node):
+    if type(node) is list:
+        for item in node:
+            yield from traverse(item)
+    elif type(node) is dict:
+        for key, value in node.items():
+            yield (node, key)
+            if type(value) in [dict, list]:
+                yield from traverse(value)
 
 def register_device(device):
     input = find_input(device)
@@ -247,9 +321,7 @@ def register_device(device):
     remappings = device['remappings']
     extended = set(caps[ecodes.EV_KEY])
 
-    def flatmap(lst):
-        return [l2 for l1 in lst for l2 in l1]
-    extended.update([remapping['code'] for remapping in flatmap(remappings.values())])
+    extended.update(get_all_codes(remappings))
     caps[ecodes.EV_KEY] = list(extended)
 
     output = UInput(caps, name=device['output_name'])

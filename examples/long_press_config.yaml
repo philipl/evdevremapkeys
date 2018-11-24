@@ -1,0 +1,72 @@
+
+# Long-press configuration
+#    BTN_RIGHT:               # key to be mapped
+#    - code: BTN_RIGHT        # short-press key
+#      repeat: true           # whether to repeat short-press key (optional; defaults to false)
+#      rate: .1               # short-press repeat rate (optional; defaults to 0.1 seconds)
+#      count: 2               # short-press count; must be greater than 0 (optional; defaults to 1)
+#      long_press:            #
+#        code: BTN_LEFT       # long-press key
+#        duration: .2         # seconds to wait before considering it a long-press (optional; defaults to 0.2 seconds)
+#        repeat: true         # whether to repreat long-press key (optional; defaults to false)
+#        rate: .1             # long-press repeat rate (optional; defaults to 0.1 seconds)
+#        count: 2             # long-press count; if 0 it repeats untill key is depressed (optional; defaults to 0)
+
+devices:
+- input_name: 'Compx 2.4G Receiver'
+  input_phys: 'usb-0000:00:14.0-3/input1'
+  output_name: remap-mouse
+  remappings:
+    # Map right button to double click when long pressed
+    BTN_RIGHT:
+    - code: BTN_RIGHT
+      long_press:
+        duration: .2
+        code: BTN_LEFT
+        repeat: true
+        rate: .1
+        count: 2
+    # Map middle button to 'right click' when long pressed and double click when short pressed
+    BTN_MIDDLE:
+    - code: BTN_LEFT
+      long_press:
+        duration: .2
+        code: BTN_RIGHT
+      repeat: true
+      rate: .1
+      count: 2
+
+    # Map side buttons to vertical scroll
+    # Scroll event is repeated as long as button is kept pressed.
+    # Original behaviour (back/forward) is kept for short click.
+    BTN_SIDE:
+    - code: BTN_SIDE
+      long_press:
+        duration: .15
+        value: [-1]
+        code: REL_WHEEL
+        type: EV_REL
+        repeat: true
+    BTN_EXTRA:
+    - code: BTN_EXTRA
+      long_press:
+        duration: .15
+        value: [1]
+        code: REL_WHEEL
+        type: EV_REL
+        repeat: true
+- input_name: 'AT Translated Set 2 keyboard'
+  input_phys: 'isa0060/serio0/input0'
+  output_name: remap-asus-kb
+  remappings:
+    # Map F1 to 'copy' when short pressed. Original behaviour remains on long press.
+    KEY_F1:
+      - code: [KEY_LEFTCTRL, KEY_C]
+        long_press:
+          code: KEY_F1
+    # Map TAB to 'paste' when long pressed. Original behaviour remains on short press.
+    KEY_TAB:
+      - code: KEY_TAB
+        long_press:
+          code: [KEY_LEFTCTRL, KEY_V]
+

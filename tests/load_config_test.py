@@ -47,6 +47,12 @@ class TestLoadConfig(unittest.TestCase):
     def test_accepts_other_parameters(self):
         mapping = remapping('config.yaml', ecodes.KEY_E)
         self.assertEqual("[{code: 30,param1: p1,param2: p2}]", pretty(mapping))
+    def test_accepts_complex_parameters(self):
+        mapping = remapping('config.yaml', ecodes.KEY_F)
+        self.assertEqual("[{code: 30,complex_param: {'duration': 0.2, 'value': [1], "
+                         "'complex_param2': {'duration': 0.2, 'value': [1], 'code': [272, 273], "
+                         "'repeat': True, 'type': 2}, 'code': 272, 'repeat': True, "
+                         "'type': 2},type: 2}]", pretty(mapping))
 
 def remapping(config_name, code):
     config_path = '{}/{}'.format(spec_dir, config_name)
