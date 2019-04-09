@@ -334,7 +334,8 @@ def main():
                         help='List input devices by name and physical address')
     parser.add_argument('-e', '--read-events', metavar='EVENT_ID',
                         help='Read events from an input device by either name, physical address or number.')
-    parser.add_argument('-a', '--allow-invalid', action='store_true')
+    parser.add_argument('-a', '--allow-invalid', action='store_true',
+                        help='Skip invalid device names instead of crashing')
     args = parser.parse_args()
     if args.list_devices:
         print("\n".join(['%s:\t"%s" | "%s' % (fn, phys, name) for (fn, phys, name) in list_devices()]))
