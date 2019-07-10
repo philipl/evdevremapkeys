@@ -29,7 +29,7 @@ import pprint
 
 spec_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.append('{}/..'.format(spec_dir))
-from evdevremapkeys import load_config
+from evdevremapkeys.evdevremapkeys import load_config
 
 class TestLoadConfig(unittest.TestCase):
     def test_supports_simple_notation(self):
