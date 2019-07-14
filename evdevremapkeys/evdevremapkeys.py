@@ -34,21 +34,37 @@ from evdev import ecodes, InputDevice, UInput
 from xdg import BaseDirectory
 import yaml
 
+import inspect
+from pprint import pprint
+
 DEFAULT_RATE = .1  # seconds
 repeat_tasks = {}
 remapped_tasks = {}
 
 @asyncio.coroutine
-def handle_events(input, output, remappings):
+def handle_events(input, output, remappings, modifier_groups):
+    active_group = {}
     while True:
         events = yield from input.async_read()  # noqa
         for event in events:
-            if event.type == ecodes.EV_KEY and \
-               event.code in remappings:
-                remap_event(output, event, remappings)
+            if not active_group:
+                active_mappings = remappings
             else:
-                output.write_event(event)
-                output.syn()
+                active_mappings =  modifier_groups[active_group['name']]
+
+            if (event.code == active_group.get('code') or
+                    (event.code in active_mappings and 'modifier_group' in active_mappings.get(event.code)[0])):
+                if event.value == 1:
+                    active_group['name'] = active_mappings[event.code][0]['modifier_group']
+                    active_group['code'] = event.code
+                elif event.value == 0:
+                    active_group = {}
+            else:
+                if event.code in active_mappings:
+                    remap_event(output, event, active_mappings[event.code])
+                else:
+                    output.write_event(event)
+                    output.syn()
 
 
 @asyncio.coroutine
@@ -64,8 +80,8 @@ def repeat_event(event, rate, count, values, output):
         yield from asyncio.sleep(rate)
 
 
-def remap_event(output, event, remappings):
-    for remapping in remappings[event.code]:
+def remap_event(output, event, event_remapping):
+    for remapping in event_remapping:
         original_code = event.code
         event.code = remapping['code']
         event.type = remapping.get('type', None) or event.type
@@ -138,6 +154,9 @@ def remap_event(output, event, remappings):
 #                         # Will suppress key/button output x times before execution [x = count]
 #                         # Ex: count = 1 will execute key press every other time
 #      }]
+#    },
+#    'modifier_groups': {
+#        'mod1': { -- is the same as 'remappings' --}
 #    }
 #  }]
 def load_config(config_override):
@@ -159,7 +178,10 @@ def load_config(config_override):
         for device in config['devices']:
             device['remappings'] = normalize_config(device['remappings'])
             device['remappings'] = resolve_ecodes(device['remappings'])
-
+            if 'modifier_groups' in device:
+                for group in device['modifier_groups']:
+                    device['modifier_groups'][group] = normalize_config(device['modifier_groups'][group])
+                    device['modifier_groups'][group] = resolve_ecodes(device['modifier_groups'][group])
     return config
 
 
@@ -247,14 +269,25 @@ def register_device(device):
     remappings = device['remappings']
     extended = set(caps[ecodes.EV_KEY])
 
+    modifier_groups = []
+    if 'modifier_groups' in device:
+        modifier_groups = device['modifier_groups']
+
     def flatmap(lst):
         return [l2 for l1 in lst for l2 in l1]
-    extended.update([remapping['code'] for remapping in flatmap(remappings.values())])
+
+    for remapping in flatmap(remappings.values()):
+        if 'code' in remapping:
+            extended.update([remapping['code']])
+
+    for group in modifier_groups:
+        for remapping in flatmap(modifier_groups[group].values()):
+            if 'code' in remapping:
+                extended.update([remapping['code']])
+
     caps[ecodes.EV_KEY] = list(extended)
-
     output = UInput(caps, name=device['output_name'])
-
-    asyncio.ensure_future(handle_events(input, output, remappings))
+    asyncio.ensure_future(handle_events(input, output, remappings, modifier_groups))
 
 
 @asyncio.coroutine
@@ -289,6 +322,7 @@ def list_devices():
     devices = [InputDevice(fn) for fn in evdev.list_devices()]
     for device in reversed(devices):
         yield [device.fn, device.phys, device.name]
+
 
 def read_events(req_device):
     for device in list_devices():
