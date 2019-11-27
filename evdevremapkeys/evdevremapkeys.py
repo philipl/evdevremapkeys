@@ -34,12 +34,10 @@ from evdev import ecodes, InputDevice, UInput
 from xdg import BaseDirectory
 import yaml
 
-import inspect
-from pprint import pprint
-
 DEFAULT_RATE = .1  # seconds
 repeat_tasks = {}
 remapped_tasks = {}
+
 
 @asyncio.coroutine
 def handle_events(input, output, remappings, modifier_groups):
@@ -50,12 +48,14 @@ def handle_events(input, output, remappings, modifier_groups):
             if not active_group:
                 active_mappings = remappings
             else:
-                active_mappings =  modifier_groups[active_group['name']]
+                active_mappings = modifier_groups[active_group['name']]
 
             if (event.code == active_group.get('code') or
-                    (event.code in active_mappings and 'modifier_group' in active_mappings.get(event.code)[0])):
+                    (event.code in active_mappings and
+                     'modifier_group' in active_mappings.get(event.code)[0])):
                 if event.value == 1:
-                    active_group['name'] = active_mappings[event.code][0]['modifier_group']
+                    active_group['name'] = \
+                        active_mappings[event.code][0]['modifier_group']
                     active_group['code'] = event.code
                 elif event.value == 0:
                     active_group = {}
@@ -101,7 +101,8 @@ def remap_event(output, event, event_remapping):
             if not (key_up or key_down):
                 return
             if delay:
-                if original_code not in remapped_tasks or remapped_tasks[original_code] == 0:
+                if original_code not in remapped_tasks or \
+                   remapped_tasks[original_code] == 0:
                     if key_down:
                         remapped_tasks[original_code] = count
                 else:
@@ -151,7 +152,7 @@ def remap_event(output, event, event_remapping):
 #                         # If count is 0 it will repeat until key/button is depressed
 #                         # If count > 0 it will repeat specified number of times
 #                         # For delay:
-#                         # Will suppress key/button output x times before execution [x = count]
+#                         # Will suppress key/button output x times before execution [x = count]  # noqa
 #                         # Ex: count = 1 will execute key press every other time
 #      }]
 #    },
@@ -180,8 +181,10 @@ def load_config(config_override):
             device['remappings'] = resolve_ecodes(device['remappings'])
             if 'modifier_groups' in device:
                 for group in device['modifier_groups']:
-                    device['modifier_groups'][group] = normalize_config(device['modifier_groups'][group])
-                    device['modifier_groups'][group] = resolve_ecodes(device['modifier_groups'][group])
+                    device['modifier_groups'][group] = \
+                        normalize_config(device['modifier_groups'][group])
+                    device['modifier_groups'][group] = \
+                        resolve_ecodes(device['modifier_groups'][group])
     return config
 
 
@@ -327,11 +330,12 @@ def list_devices():
 def read_events(req_device):
     for device in list_devices():
         # Look in all 3 identifiers + event number
-        if req_device in device or req_device == device[0].replace("/dev/input/event", ""):
+        if req_device in device or \
+           req_device == device[0].replace("/dev/input/event", ""):
             found = evdev.InputDevice(device[0])
 
     if 'found' not in locals():
-        print("Device not found. \nPlease use --list-devices to view a list of available devices.")
+        print("Device not found. \nPlease use --list-devices to view a list of available devices.")  # noqa
         return
 
     print(found)
@@ -342,8 +346,8 @@ def read_events(req_device):
             if event.type == evdev.ecodes.EV_KEY:
                 categorized = evdev.categorize(event)
                 if categorized.keystate == 1:
-                    keycode = categorized.keycode if type(categorized.keycode) is str else \
-                            " | ".join(categorized.keycode)
+                    keycode = categorized.keycode if type(categorized.keycode) is str \
+                        else " | ".join(categorized.keycode)
                     print("Key pressed: %s (%s)" % (keycode, categorized.scancode))
         except KeyError:
             if event.value:
@@ -361,11 +365,12 @@ def main():
     parser.add_argument('-l', '--list-devices', action='store_true',
                         help='List input devices by name and physical address')
     parser.add_argument('-e', '--read-events', metavar='EVENT_ID',
-                        help='Read events from an input device by either name, physical address or number.')
+                        help='Read events from an input device by either name, physical address or number.')  # noqa
 
     args = parser.parse_args()
     if args.list_devices:
-        print("\n".join(['%s:\t"%s" | "%s' % (fn, phys, name) for (fn, phys, name) in list_devices()]))
+        print("\n".join(['%s:\t"%s" | "%s' %
+              (fn, phys, name) for (fn, phys, name) in list_devices()]))
     elif args.read_events:
         read_events(args.read_events)
     elif args.daemon:
@@ -374,6 +379,6 @@ def main():
     else:
         run_loop(args)
 
+
 if __name__ == '__main__':
     main()
-
