@@ -30,40 +30,47 @@ import signal
 
 import evdev
 from evdev import ecodes, InputDevice, UInput
+import pyudev
 from xdg import BaseDirectory
 import yaml
 
 DEFAULT_RATE = .1  # seconds
 repeat_tasks = {}
 remapped_tasks = {}
+registered_devices = {}
 
 
 @asyncio.coroutine
-def handle_events(input, output, remappings, modifier_groups):
+async def handle_events(input, output, remappings, modifier_groups):
     active_group = {}
-    while True:
-        events = yield from input.async_read()  # noqa
-        for event in events:
-            if not active_group:
-                active_mappings = remappings
-            else:
-                active_mappings = modifier_groups[active_group['name']]
-
-            if (event.code == active_group.get('code') or
-                    (event.code in active_mappings and
-                     'modifier_group' in active_mappings.get(event.code)[0])):
-                if event.value == 1:
-                    active_group['name'] = \
-                        active_mappings[event.code][0]['modifier_group']
-                    active_group['code'] = event.code
-                elif event.value == 0:
-                    active_group = {}
-            else:
-                if event.code in active_mappings:
-                    remap_event(output, event, active_mappings[event.code])
+    try:
+        while True:
+            async for event in input.async_read_loop():
+                if not active_group:
+                    active_mappings = remappings
                 else:
-                    output.write_event(event)
-                    output.syn()
+                    active_mappings = modifier_groups[active_group['name']]
+
+                if (event.code == active_group.get('code') or
+                        (event.code in active_mappings and
+                         'modifier_group' in active_mappings.get(event.code)[0])):
+                    if event.value == 1:
+                        active_group['name'] = \
+                            active_mappings[event.code][0]['modifier_group']
+                        active_group['code'] = event.code
+                    elif event.value == 0:
+                        active_group = {}
+                else:
+                    if event.code in active_mappings:
+                        remap_event(output, event, active_mappings[event.code])
+                    else:
+                        output.write_event(event)
+                        output.syn()
+    except Exception as e:
+        del registered_devices[input.path]
+        print('Unregistered: %s, %s, %s' % (input.name, input.path, input.phys),
+              flush=True)
+        raise e
 
 
 @asyncio.coroutine
@@ -252,16 +259,22 @@ def find_input(device):
             continue
         if phys is not None and input.phys != phys:
             continue
-        if fn is not None and input.fn != fn:
+        if fn is not None and input.path != fn:
+            continue
+        if input.path in registered_devices:
             continue
         return input
     return None
 
 
 def register_device(device):
+    for value in registered_devices.values():
+        if device == value['device']:
+            return value['future']
+
     input = find_input(device)
     if input is None:
-        raise NameError("Can't find input device")
+        return None
     input.grab()
 
     caps = input.capabilities()
@@ -289,7 +302,14 @@ def register_device(device):
 
     caps[ecodes.EV_KEY] = list(extended)
     output = UInput(caps, name=device['output_name'])
-    asyncio.ensure_future(handle_events(input, output, remappings, modifier_groups))
+    print('Registered: %s, %s, %s' % (input.name, input.path, input.phys), flush=True)
+    future = \
+        asyncio.ensure_future(handle_events(input, output, remappings, modifier_groups))
+    registered_devices[input.path] = {
+        'future': future,
+        'device': device,
+    }
+    return future
 
 
 @asyncio.coroutine
@@ -301,15 +321,41 @@ def shutdown(loop):
     loop.stop()
 
 
+def handle_udev_event(monitor, config):
+    count = 0
+    while True:
+        device = monitor.poll(0)
+        if device is None or device.action != 'add':
+            break
+        count += 1
+
+    if count:
+        for device in config['devices']:
+            register_device(device)
+
+
 def run_loop(args):
+    context = pyudev.Context()
+    monitor = pyudev.Monitor.from_netlink(context)
+    monitor.filter_by('input')
+    fd = monitor.fileno()
+    monitor.start()
+
     config = load_config(args.config_file)
+    tasks = []
     for device in config['devices']:
-        register_device(device)
+        task = register_device(device)
+        if task:
+            tasks.append(task)
+
+    if not tasks:
+        print('No configured devices detected at startup.', flush=True)
 
     loop = asyncio.get_event_loop()
     loop.add_signal_handler(signal.SIGTERM,
                             functools.partial(asyncio.ensure_future,
                                               shutdown(loop)))
+    loop.add_reader(fd, handle_udev_event, monitor, config)
 
     try:
         loop.run_forever()
