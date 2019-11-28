@@ -28,7 +28,6 @@ from pathlib import Path
 import signal
 
 
-import daemon
 import evdev
 from evdev import ecodes, InputDevice, UInput
 from xdg import BaseDirectory
@@ -358,8 +357,6 @@ def read_events(req_device):
 
 def main():
     parser = argparse.ArgumentParser(description='Re-bind keys for input devices')
-    parser.add_argument('-d', '--daemon',
-                        help='Run as a daemon', action='store_true')
     parser.add_argument('-f', '--config-file',
                         help='Config file that overrides default location')
     parser.add_argument('-l', '--list-devices', action='store_true',
@@ -373,9 +370,6 @@ def main():
               (fn, phys, name) for (fn, phys, name) in list_devices()]))
     elif args.read_events:
         read_events(args.read_events)
-    elif args.daemon:
-        with daemon.DaemonContext():
-            run_loop(args)
     else:
         run_loop(args)
 

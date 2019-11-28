@@ -1,0 +1,13 @@
+[Unit]
+Conflicts=gnome-shell-x11.service
+
+[Service]
+WorkingDirectory=/tmp
+ExecStart=evdevremapkeys
+Restart=always
+PrivateTmp=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=gnome-shell-wayland.service
+

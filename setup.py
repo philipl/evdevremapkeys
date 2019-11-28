@@ -34,8 +34,7 @@ setup(
 
     packages=find_packages(),
     include_package_data=True,
-    install_requires=['python-daemon >= 2.1.2',
-                      'evdev >= 0.7.0',
+    install_requires=['evdev >= 0.7.0',
                       'pyxdg >= 0.25',
                       'PyYAML >= 3.12'],
     entry_points={
