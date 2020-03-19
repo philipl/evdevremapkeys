@@ -34,10 +34,10 @@ setup(
 
     packages=find_packages(),
     include_package_data=True,
-    install_requires=['evdev >= 0.7.0',
-                      'pyudev >= 0.21.0',
-                      'pyxdg >= 0.25',
-                      'PyYAML >= 3.12'],
+    install_requires=['evdev >= 1.3.0',
+                      'pyudev >= 0.22.0',
+                      'pyxdg >= 0.26',
+                      'PyYAML >= 5.3'],
     entry_points={
         'console_scripts': [
             'evdevremapkeys = evdevremapkeys.evdevremapkeys:main',
