@@ -369,7 +369,7 @@ def run_loop(args):
 def list_devices():
     devices = [InputDevice(fn) for fn in evdev.list_devices()]
     for device in reversed(devices):
-        yield [device.fn, device.phys, device.name]
+        yield [device.path, device.phys, device.name]
 
 
 def read_events(req_device):
@@ -413,7 +413,7 @@ def main():
     args = parser.parse_args()
     if args.list_devices:
         print("\n".join(['%s:\t"%s" | "%s' %
-              (fn, phys, name) for (fn, phys, name) in list_devices()]))
+                         (path, phys, name) for (path, phys, name) in list_devices()]))
     elif args.read_events:
         read_events(args.read_events)
     else:
