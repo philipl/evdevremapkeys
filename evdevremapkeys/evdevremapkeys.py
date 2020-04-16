@@ -158,7 +158,8 @@ def remap_event(output, event, event_remapping):
 #                         # If count is 0 it will repeat until key/button is depressed
 #                         # If count > 0 it will repeat specified number of times
 #                         # For delay:
-#                         # Will suppress key/button output x times before execution [x = count]  # noqa
+#                         # Will suppress key/button output x times before
+#                         # execution [x = count]
 #                         # Ex: count = 1 will execute key press every other time
 #      }]
 #    },
@@ -308,8 +309,8 @@ def register_device(device):
     caps[ecodes.EV_KEY] = list(extended)
     output = UInput(caps, name=device['output_name'])
     print('Registered: %s, %s, %s' % (input.name, input.path, input.phys), flush=True)
-    future = \
-        asyncio.ensure_future(handle_events(input, output, remappings, modifier_groups))
+    future = asyncio.ensure_future(
+        handle_events(input, output, remappings, modifier_groups))
     registered_devices[input.path] = {
         'future': future,
         'device': device,
@@ -385,7 +386,8 @@ def read_events(req_device):
             found = evdev.InputDevice(device[0])
 
     if 'found' not in locals():
-        print("Device not found. \nPlease use --list-devices to view a list of available devices.")  # noqa
+        print("Device not found. \n"
+              "Please use --list-devices to view a list of available devices.")
         return
 
     print(found)
@@ -413,7 +415,8 @@ def main():
     parser.add_argument('-l', '--list-devices', action='store_true',
                         help='List input devices by name and physical address')
     parser.add_argument('-e', '--read-events', metavar='EVENT_ID',
-                        help='Read events from an input device by either name, physical address or number.')  # noqa
+                        help='Read events from an input device by either '
+                        'name, physical address or number.')
 
     args = parser.parse_args()
     if args.list_devices:
