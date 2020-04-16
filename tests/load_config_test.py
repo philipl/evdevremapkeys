@@ -21,65 +21,72 @@
 # SOFTWARE.
 
 
-import unittest
-import os
-import sys
 from evdev import ecodes
-import pprint
-
-spec_dir = os.path.dirname(os.path.realpath(__file__))
-sys.path.append('{}/..'.format(spec_dir))
 from evdevremapkeys.evdevremapkeys import load_config
 
-class TestLoadConfig(unittest.TestCase):
-    def test_supports_simple_notation(self):
-        mapping = remapping('config.yaml', ecodes.KEY_A)
-        self.assertEqual("[{'code': 30}]", str(mapping))
-    def test_supports_advanced_notation(self):
-        mapping = remapping('config.yaml', ecodes.KEY_B)
-        self.assertEqual("[{'code': 30}]", str(mapping))
-    def test_resolves_single_value(self):
-        mapping = remapping('config.yaml', ecodes.KEY_C)
-        self.assertEqual("[{code: 30,value: [1]}]", pretty(mapping))
-    def test_accepts_multiple_values(self):
-        mapping = remapping('config.yaml', ecodes.KEY_D)
-        self.assertEqual("[{code: 30,value: [1, 2]}]", pretty(mapping))
-    def test_accepts_other_parameters(self):
-        mapping = remapping('config.yaml', ecodes.KEY_E)
-        self.assertEqual("[{code: 30,param1: p1,param2: p2}]", pretty(mapping))
-    def test_accepts_modifier(self):
-        mapping = remapping('config.yaml', ecodes.KEY_Z)
-        self.assertEqual("[{modifier_group: mod1}]", pretty(mapping))
-    def test_mod_group_supports_simple_notation(self):
-        mapping = modified_remapping('config.yaml', ecodes.KEY_A)
-        self.assertEqual("[{code: 33}]", pretty(mapping))
-    def test_mod_group_supports_advanced_notation(self):
-        mapping = modified_remapping('config.yaml', ecodes.KEY_B)
-        self.assertEqual("[{'code': 33}]", str(mapping))
-    def test_mod_group_resolves_single_value(self):
-        mapping = modified_remapping('config.yaml', ecodes.KEY_C)
-        self.assertEqual("[{code: 33,value: [2]}]", pretty(mapping))
-    def test_mod_group_accepts_multiple_values(self):
-        mapping = modified_remapping('config.yaml', ecodes.KEY_D)
-        self.assertEqual("[{code: 33,value: [1, 3]}]", pretty(mapping))
-    def test_mod_group_accepts_other_parameters(self):
-        mapping = modified_remapping('config.yaml', ecodes.KEY_E)
-        self.assertEqual("[{code: 33,param3: p1,param4: p2}]", pretty(mapping))
+
+def test_supports_simple_notation():
+    mapping = remapping('config.yaml', ecodes.KEY_A)
+    assert [{'code': 30}] == mapping
+
+
+def test_supports_advanced_notation():
+    mapping = remapping('config.yaml', ecodes.KEY_B)
+    assert [{'code': 30}] == mapping
+
+
+def test_resolves_single_value():
+    mapping = remapping('config.yaml', ecodes.KEY_C)
+    assert [{'code': 30, 'value': [1]}] == mapping
+
+
+def test_accepts_multiple_values():
+    mapping = remapping('config.yaml', ecodes.KEY_D)
+    assert [{'code': 30, 'value': [1, 2]}] == mapping
+
+
+def test_accepts_other_parameters():
+    mapping = remapping('config.yaml', ecodes.KEY_E)
+    assert [{'code': 30, 'param1': 'p1', 'param2': 'p2'}] == mapping
+
+
+def test_accepts_modifier():
+    mapping = remapping('config.yaml', ecodes.KEY_Z)
+    assert [{'modifier_group': 'mod1'}] == mapping
+
+
+def test_mod_group_supports_simple_notation():
+    mapping = modified_remapping('config.yaml', ecodes.KEY_A)
+    assert [{'code': 33}] == mapping
+
+
+def test_mod_group_supports_advanced_notation():
+    mapping = modified_remapping('config.yaml', ecodes.KEY_B)
+    assert [{'code': 33}] == mapping
+
+
+def test_mod_group_resolves_single_value():
+    mapping = modified_remapping('config.yaml', ecodes.KEY_C)
+    assert [{'code': 33, 'value': [2]}] == mapping
+
+
+def test_mod_group_accepts_multiple_values():
+    mapping = modified_remapping('config.yaml', ecodes.KEY_D)
+    [{'code': 33, 'value': [1, 3]}] == mapping
+
+
+def test_mod_group_accepts_other_parameters():
+    mapping = modified_remapping('config.yaml', ecodes.KEY_E)
+    assert [{'code': 33, 'param3': 'p1', 'param4': 'p2'}] == mapping
+
 
 def remapping(config_name, code):
-    config_path = '{}/{}'.format(spec_dir, config_name)
+    config_path = '{}/{}'.format('tests', config_name)
     config = load_config(config_path)
     return config['devices'][0]['remappings'].get(code)
 
+
 def modified_remapping(config_name, code):
-    config_path = '{}/{}'.format(spec_dir, config_name)
+    config_path = '{}/{}'.format('tests', config_name)
     config = load_config(config_path)
     return config['devices'][0]['modifier_groups']['mod1'].get(code)
-
-def pretty(mappings):
-    def prettymapping(mapping):
-        return '{'+','.join(['{}: {}'.format(key, mapping[key]) for key in sorted(mapping.keys())])+'}'
-    return '['+','.join([prettymapping(mapping) for mapping in mappings])+']'
-
-suite = unittest.TestLoader().loadTestsFromTestCase(TestLoadConfig)
-unittest.TextTestRunner(verbosity=2).run(suite)
