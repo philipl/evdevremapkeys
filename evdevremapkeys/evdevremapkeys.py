@@ -182,15 +182,20 @@ def load_config(config_override):
 
     with open(conf_path.as_posix(), 'r') as fd:
         config = yaml.safe_load(fd)
-        for device in config['devices']:
-            device['remappings'] = normalize_config(device['remappings'])
-            device['remappings'] = resolve_ecodes(device['remappings'])
-            if 'modifier_groups' in device:
-                for group in device['modifier_groups']:
-                    device['modifier_groups'][group] = \
-                        normalize_config(device['modifier_groups'][group])
-                    device['modifier_groups'][group] = \
-                        resolve_ecodes(device['modifier_groups'][group])
+        return parse_config(config)
+
+
+def parse_config(config):
+    for device in config['devices']:
+        device['remappings'] = normalize_config(device['remappings'])
+        device['remappings'] = resolve_ecodes(device['remappings'])
+        if 'modifier_groups' in device:
+            for group in device['modifier_groups']:
+                device['modifier_groups'][group] = \
+                    normalize_config(device['modifier_groups'][group])
+                device['modifier_groups'][group] = \
+                    resolve_ecodes(device['modifier_groups'][group])
+
     return config
 
 
