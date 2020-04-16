@@ -73,7 +73,3 @@ I'm not going to expand beyond key to key remappings.
 * [Python evdev binding](https://pypi.python.org/pypi/evdev) >= 0.7.0
 * [pyxdg](https://pypi.python.org/pypi/pyxdg) > 0.25
 * [PyYAML](https://pypi.python.org/pypi/PyYAML) >= 3.12
-
-## TODO
-
-* Full daemon behaviour (pidfiles, logging, etc)
