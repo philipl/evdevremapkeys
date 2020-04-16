@@ -48,7 +48,7 @@ events from other clients.
 ## Why not evmapd
 
 There is an existing project called [evmapd](https://github.com/thkala/evmapd)
-which is, obstentibly, exactly what we're looking for - a daemon that will
+which is, ostensibly, exactly what we're looking for - a daemon that will
 take input events from one device, and then generate new events on a different
 uinput based device. I made a serious attempt at using it but ultimately found
 it too limiting to rely on:
