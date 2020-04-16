@@ -77,7 +77,7 @@ async def handle_events(input, output, remappings, modifier_groups):
 def repeat_event(event, rate, count, values, output):
     if count == 0:
         count = -1
-    while count is not 0:
+    while count != 0:
         count -= 1
         for value in values:
             event.value = value
@@ -100,8 +100,8 @@ def remap_event(output, event, event_remapping):
                 output.write_event(event)
                 output.syn()
         else:
-            key_down = event.value is 1
-            key_up = event.value is 0
+            key_down = event.value == 1
+            key_up = event.value == 0
             count = remapping.get('count', 0)
 
             if not (key_up or key_down):
