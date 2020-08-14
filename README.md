@@ -48,7 +48,7 @@ events from other clients.
 ## Why not evmapd
 
 There is an existing project called [evmapd](https://github.com/thkala/evmapd)
-which is, obstentibly, exactly what we're looking for - a daemon that will
+which is, ostensibly, exactly what we're looking for - a daemon that will
 take input events from one device, and then generate new events on a different
 uinput based device. I made a serious attempt at using it but ultimately found
 it too limiting to rely on:
@@ -73,7 +73,3 @@ I'm not going to expand beyond key to key remappings.
 * [Python evdev binding](https://pypi.python.org/pypi/evdev) >= 0.7.0
 * [pyxdg](https://pypi.python.org/pypi/pyxdg) > 0.25
 * [PyYAML](https://pypi.python.org/pypi/PyYAML) >= 3.12
-
-## TODO
-
-* Full daemon behaviour (pidfiles, logging, etc)

@@ -22,25 +22,4 @@
 
 from setuptools import find_packages, setup
 
-setup(
-    name="evdevremapkeys",
-    version="0.1",
-    description='A daemon to remap key events on linux input devices',
-    author='Philip Langdale',
-    author_email='philipl@overt.org',
-    license='MIT',
-    url='https://github.com/philipl/evdevremapkeys',
-    keywords='evdev uinput',
-
-    packages=find_packages(),
-    include_package_data=True,
-    install_requires=['evdev >= 1.3.0',
-                      'pyudev >= 0.22.0',
-                      'pyxdg >= 0.26',
-                      'PyYAML >= 5.3'],
-    entry_points={
-        'console_scripts': [
-            'evdevremapkeys = evdevremapkeys.evdevremapkeys:main',
-        ],
-    },
-)
+setup()
