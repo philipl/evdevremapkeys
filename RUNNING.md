@@ -26,14 +26,14 @@ Now remove and plug your tablet back in.
 `evdevremapkeys -l` should now show the uinput devices for your tablet or other hardware.
 
 Using uaccess, when someone else sits down at the computer and logs in, then they will have
-permission to use the tablet, and the permission of your inactive account will be logged out. This
+permission to use the tablet, and the permission of your inactive account will disabled. This
 is all handled by logind/systemd/X automatically.
 
 # Software Setup
 
 ## Building a self-contained executable
 
-Run `build.sh`. It assumes you have pip installed. This will download and install all dependencies,
+Run `build-binary.sh`. It assumes you have pip installed. This will download and install all dependencies,
 compile the python to excutable code using PyInstaller, then bundle all the dynamic modules into a
 single static executable using StaticX. You may need to install patchelf on your system.
 
