@@ -10,6 +10,7 @@ __pycache__/
 .Python
 env/
 build/
+bundle/
 develop-eggs/
 dist/
 downloads/
@@ -82,6 +83,9 @@ celerybeat-schedule
 # dotenv
 .env
 
+#direv
+.envrc
+
 # virtualenv
 .venv
 venv/
@@ -93,6 +97,9 @@ ENV/
 
 # Rope project settings
 .ropeproject
+
+# VSCode project settings
+.vscode
 
 # mkdocs documentation
 /site
