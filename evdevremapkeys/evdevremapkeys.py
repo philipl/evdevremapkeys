@@ -287,8 +287,12 @@ def register_device(device):
     # EV_SYN is automatically added to uinput devices
     del caps[ecodes.EV_SYN]
 
+    caps_sets = {}
+
+    for cap in caps:
+        caps_sets[cap] = set(caps[cap])
+
     remappings = device['remappings']
-    extended = set(caps[ecodes.EV_KEY])
 
     modifier_groups = []
     if 'modifier_groups' in device:
@@ -297,16 +301,40 @@ def register_device(device):
     def flatmap(lst):
         return [l2 for l1 in lst for l2 in l1]
 
+    # First delete any events we're taking as input
+
+    remove_caps = {}
+
+    for cap in caps_sets:
+        remove_caps[cap] = set();
+        for remapping in remappings:
+            for data in caps_sets[cap]:
+                if remapping == data or (type(data) is tuple and data[0] == remapping):
+                        remove_caps[cap].add(data)
+
+    for cap in remove_caps:
+        caps_sets[cap].difference_update(remove_caps[cap])
+
     for remapping in flatmap(remappings.values()):
+        update_type = ecodes.EV_KEY
+        if 'type' in remapping:
+            update_type = remapping['type'];
         if 'code' in remapping:
-            extended.update([remapping['code']])
+            caps_sets.setdefault(update_type,set()).update([remapping['code']])
 
     for group in modifier_groups:
         for remapping in flatmap(modifier_groups[group].values()):
+            update_type = ecodes.EV_KEY
+            if 'type' in remapping:
+                update_type = remapping['type'];
             if 'code' in remapping:
-                extended.update([remapping['code']])
+                caps_sets.setdefault(update_type,set()).update([remapping['code']])
 
-    caps[ecodes.EV_KEY] = list(extended)
+    caps = {}
+
+    for cap in caps_sets:
+        caps[cap] = list(caps_sets[cap])
+
     output = UInput(caps, name=device['output_name'])
     print('Registered: %s, %s, %s' % (input.name, input.path, input.phys), flush=True)
     future = asyncio.ensure_future(
