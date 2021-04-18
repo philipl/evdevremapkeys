@@ -22,15 +22,15 @@
 
 import io
 import os
-import pytest
 import sys
-import yaml
 
 from evdev import ecodes
+from evdevremapkeys.evdevremapkeys import parse_config
+import pytest
+import yaml
 
 spec_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.append('{}/..'.format(spec_dir))
-from evdevremapkeys.evdevremapkeys import parse_config
 
 sample_config_data = '''
 devices:
