@@ -23,6 +23,8 @@
 
 import argparse
 import asyncio
+from asyncio.events import AbstractEventLoop
+from collections.abc import Iterable
 import functools
 from pathlib import Path
 import signal
@@ -40,41 +42,38 @@ remapped_tasks = {}
 registered_devices = {}
 
 
-@asyncio.coroutine
-async def handle_events(input, output, remappings, modifier_groups):
+async def handle_events(input: InputDevice, output: UInput, remappings, modifier_groups):
     active_group = {}
     try:
-        while True:
-            async for event in input.async_read_loop():
-                if not active_group:
-                    active_mappings = remappings
-                else:
-                    active_mappings = modifier_groups[active_group['name']]
+        async for event in input.async_read_loop():
+            if not active_group:
+                active_mappings = remappings
+            else:
+                active_mappings = modifier_groups[active_group['name']]
 
-                if (event.code == active_group.get('code') or
-                        (event.code in active_mappings and
-                         'modifier_group' in active_mappings.get(event.code)[0])):
-                    if event.value == 1:
-                        active_group['name'] = \
-                            active_mappings[event.code][0]['modifier_group']
-                        active_group['code'] = event.code
-                    elif event.value == 0:
-                        active_group = {}
+            if (event.code == active_group.get('code') or
+                    (event.code in active_mappings and
+                        'modifier_group' in active_mappings.get(event.code)[0])):
+                if event.value == 1:
+                    active_group['name'] = \
+                        active_mappings[event.code][0]['modifier_group']
+                    active_group['code'] = event.code
+                elif event.value == 0:
+                    active_group = {}
+            else:
+                if event.code in active_mappings:
+                    remap_event(output, event, active_mappings[event.code])
                 else:
-                    if event.code in active_mappings:
-                        remap_event(output, event, active_mappings[event.code])
-                    else:
-                        output.write_event(event)
-                        output.syn()
-    except Exception as e:
+                    output.write_event(event)
+                    output.syn()
+    finally:
         del registered_devices[input.path]
         print('Unregistered: %s, %s, %s' % (input.name, input.path, input.phys),
               flush=True)
-        raise e
+        input.close()
 
 
-@asyncio.coroutine
-def repeat_event(event, rate, count, values, output):
+async def repeat_event(event, rate, count, values, output):
     if count == 0:
         count = -1
     while count != 0:
@@ -83,7 +82,7 @@ def repeat_event(event, rate, count, values, output):
             event.value = value
             output.write_event(event)
             output.syn()
-        yield from asyncio.sleep(rate)
+        await asyncio.sleep(rate)
 
 
 def remap_event(output, event, event_remapping):
@@ -273,10 +272,10 @@ def find_input(device):
     return None
 
 
-def register_device(device):
+def register_device(device, loop: AbstractEventLoop):
     for value in registered_devices.values():
         if device == value['device']:
-            return value['future']
+            return value['task']
 
     input = find_input(device)
     if input is None:
@@ -309,25 +308,26 @@ def register_device(device):
     caps[ecodes.EV_KEY] = list(extended)
     output = UInput(caps, name=device['output_name'])
     print('Registered: %s, %s, %s' % (input.name, input.path, input.phys), flush=True)
-    future = asyncio.ensure_future(
-        handle_events(input, output, remappings, modifier_groups))
+    task = loop.create_task(
+        handle_events(input, output, remappings, modifier_groups),
+        name=input.name)
     registered_devices[input.path] = {
-        'future': future,
+        'task': task,
         'device': device,
+        'input': input,
     }
-    return future
+    return task
 
 
-@asyncio.coroutine
-def shutdown(loop):
-    tasks = [task for task in asyncio.Task.all_tasks() if task is not
-             asyncio.tasks.Task.current_task()]
+async def shutdown(loop: AbstractEventLoop):
+    tasks = [task for task in asyncio.all_tasks(loop) if task is not
+             asyncio.tasks.current_task(loop)]
     list(map(lambda task: task.cancel(), tasks))
-    yield from asyncio.gather(*tasks, return_exceptions=True)
+    await asyncio.gather(*tasks, return_exceptions=True)
     loop.stop()
 
 
-def handle_udev_event(monitor, config):
+def handle_udev_event(monitor, config, loop):
     count = 0
     while True:
         device = monitor.poll(0)
@@ -337,7 +337,11 @@ def handle_udev_event(monitor, config):
 
     if count:
         for device in config['devices']:
-            register_device(device)
+            register_device(device, loop)
+
+
+def create_shutdown_task(loop: AbstractEventLoop):
+    return loop.create_task(shutdown(loop))
 
 
 def run_loop(args):
@@ -347,27 +351,27 @@ def run_loop(args):
     fd = monitor.fileno()
     monitor.start()
 
+    loop = asyncio.get_event_loop()
+
     config = load_config(args.config_file)
-    tasks = []
+    tasks: Iterable[asyncio.Task] = []
     for device in config['devices']:
-        task = register_device(device)
+        task = register_device(device, loop)
         if task:
             tasks.append(task)
 
     if not tasks:
         print('No configured devices detected at startup.', flush=True)
 
-    loop = asyncio.get_event_loop()
     loop.add_signal_handler(signal.SIGTERM,
-                            functools.partial(asyncio.ensure_future,
-                                              shutdown(loop)))
-    loop.add_reader(fd, handle_udev_event, monitor, config)
+                            functools.partial(create_shutdown_task, loop))
+    loop.add_reader(fd, handle_udev_event, monitor, config, loop)
 
     try:
         loop.run_forever()
     except KeyboardInterrupt:
         loop.remove_signal_handler(signal.SIGTERM)
-        loop.run_until_complete(asyncio.ensure_future(shutdown(loop)))
+        loop.run_until_complete(shutdown(loop))
     finally:
         loop.close()
 
