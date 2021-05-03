@@ -424,7 +424,7 @@ def main():
 
     args = parser.parse_args()
     if args.list_devices:
-        print("\n".join(['%s:\t"%s" | "%s' %
+        print("\n".join(['%s:\t"%s" | "%s"' %
                          (path, phys, name) for (path, phys, name) in list_devices()]))
     elif args.read_events:
         read_events(args.read_events)
