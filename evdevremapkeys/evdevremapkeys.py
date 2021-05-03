@@ -418,7 +418,7 @@ def main():
                         help='Config file that overrides default location')
     parser.add_argument('-l', '--list-devices', action='store_true',
                         help='List input devices by name and physical address')
-    parser.add_argument('-e', '--read-events', metavar='EVENT_ID',
+    parser.add_argument('-e', '--read-events', metavar='DEVICE',
                         help='Read events from an input device by either '
                         'name, physical address or number.')
 
