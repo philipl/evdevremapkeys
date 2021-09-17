@@ -258,7 +258,7 @@ def find_input(device):
         raise NameError('Devices must be identified by at least one ' +
                         'of "input_name", "input_phys", or "input_fn"')
 
-    devices = [InputDevice(fn) for fn in evdev.list_devices()]
+    devices = [InputDevice(fn) for fn in reversed(evdev.list_devices())]
     for input in devices:
         if name is not None and input.name != name:
             continue
