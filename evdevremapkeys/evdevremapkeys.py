@@ -222,7 +222,7 @@ def normalize_config(remappings):
     for key, mappings in remappings.items():
         new_mappings = []
         for mapping in mappings:
-            if type(mapping) is str:
+            if type(mapping) is str or type(mapping) is int:
                 new_mappings.append({'code': mapping})
             else:
                 normalize_value(mapping)
@@ -241,11 +241,16 @@ def normalize_value(mapping):
 def resolve_ecodes(by_name):
     def resolve_mapping(mapping):
         if 'code' in mapping:
-            mapping['code'] = ecodes.ecodes[mapping['code']]
+            code = mapping['code']
+            if type(code) is int:
+                mapping['code'] = code
+            else:
+                mapping['code'] = ecodes.ecodes[mapping['code']]
         if 'type' in mapping:
             mapping['type'] = ecodes.ecodes[mapping['type']]
         return mapping
-    return {ecodes.ecodes[key]: list(map(resolve_mapping, mappings))
+    return {key if type(key) is int else ecodes.ecodes[key]:
+            list(map(resolve_mapping, mappings))
             for key, mappings in by_name.items()}
 
 
