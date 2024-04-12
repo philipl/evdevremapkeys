@@ -28,6 +28,12 @@ from collections.abc import Iterable
 import functools
 from pathlib import Path
 import signal
+import os
+import re
+import importlib
+import inspect
+import sys
+import getpass
 
 
 import evdev
@@ -42,7 +48,7 @@ remapped_tasks = {}
 registered_devices = {}
 
 
-async def handle_events(input: InputDevice, output: UInput, remappings, modifier_groups):
+async def handle_events(input: InputDevice, output: UInput, remappings, modifier_groups, on_input_events):
     active_group = {}
     try:
         async for event in input.async_read_loop():
@@ -64,6 +70,8 @@ async def handle_events(input: InputDevice, output: UInput, remappings, modifier
                 if event.code in active_mappings:
                     remap_event(output, event, active_mappings[event.code])
                 else:
+                    for handler in on_input_events:
+                        await handler(input, event)
                     output.write_event(event)
                     output.syn()
     finally:
@@ -189,12 +197,53 @@ def parse_config(config):
     for device in config['devices']:
         device['remappings'] = normalize_config(device['remappings'])
         device['remappings'] = resolve_ecodes(device['remappings'])
+        if device['remappings'] in [ {}, None ]:
+            print(f"No remappings found for device {device['input_name']}")
         if 'modifier_groups' in device:
             for group in device['modifier_groups']:
                 device['modifier_groups'][group] = \
                     normalize_config(device['modifier_groups'][group])
                 device['modifier_groups'][group] = \
                     resolve_ecodes(device['modifier_groups'][group])
+
+        if 'extra_modules' in device:
+            module_config = device['extra_modules']
+            on_input_events = device['on_input_events'] = []
+            cwd = os.getcwd()
+            try:
+                print(f"Importing modules from {module_config['path']}")
+                os.chdir(module_config['path'])
+                # Add module directory to path for module imports to work
+                sys.path.insert(1, os.getcwd())
+                modules = os.listdir()
+                modules.sort()
+                for filename in modules:
+                    if re.match(module_config['regex'], filename):
+                        if Path(filename).owner() != getpass.getuser():
+                            print(f"Skipping {filename} as it is not owned by {getpass.getuser()}")
+                            continue
+                        # Module names are without .py extension
+                        modname = f"{filename[:-3]}"
+                        print(f"Importing {modname}")
+                        # Import module
+                        module = importlib.import_module(modname)
+                        # Get on_input_event function from module
+                        on_input_event = getattr(module, 'on_input_event', None)
+                        if (
+                            on_input_event is not None and
+                            inspect.iscoroutinefunction(on_input_event) and
+                            set(inspect.getfullargspec(on_input_event).args) == set(["device", "event"])
+                           ):
+                            on_input_events.append(on_input_event)
+
+                        break
+            except Exception as e:
+                print(f"Failed to load extra_modules for {device['input_name']}: {e}")
+            finally:
+                # Remove module directory from path
+                sys.path.pop(1)
+
+            os.chdir(cwd)
 
     return config
 
@@ -219,6 +268,9 @@ def parse_config(config):
 # }}
 def normalize_config(remappings):
     norm = {}
+    if remappings is None:
+        return norm
+
     for key, mappings in remappings.items():
         new_mappings = []
         for mapping in mappings:
@@ -289,10 +341,11 @@ def register_device(device, loop: AbstractEventLoop):
 
     caps = input.capabilities()
     # EV_SYN is automatically added to uinput devices
-    del caps[ecodes.EV_SYN]
+    del caps[ecodes.EV_SYN] # type: ignore
 
     remappings = device['remappings']
-    extended = set(caps[ecodes.EV_KEY])
+    on_input_events = device['on_input_events']
+    extended = set(caps[ecodes.EV_KEY]) # type: ignore
 
     modifier_groups = []
     if 'modifier_groups' in device:
@@ -310,11 +363,11 @@ def register_device(device, loop: AbstractEventLoop):
             if 'code' in remapping:
                 extended.update([remapping['code']])
 
-    caps[ecodes.EV_KEY] = list(extended)
+    caps[ecodes.EV_KEY] = list(extended) # type: ignore
     output = UInput(caps, name=device['output_name'])
     print('Registered: %s, %s, %s' % (input.name, input.path, input.phys), flush=True)
     task = loop.create_task(
-        handle_events(input, output, remappings, modifier_groups),
+        handle_events(input, output, remappings, modifier_groups, on_input_events),
         name=input.name)
     registered_devices[input.path] = {
         'task': task,
