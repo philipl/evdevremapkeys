@@ -42,18 +42,22 @@ remapped_tasks = {}
 registered_devices = {}
 
 
-async def handle_events(input: InputDevice, output: UInput, remappings, modifier_groups):
+async def handle_events(input: InputDevice, output: UInput, remappings, modifier_groups, bouncekeys):
     active_group = {}
+    last_code = None
+    last_timestamp = None
     try:
         async for event in input.async_read_loop():
+            code = event.code
+
             if not active_group:
                 active_mappings = remappings
             else:
                 active_mappings = modifier_groups[active_group['name']]
 
-            if (event.code == active_group.get('code') or
-                    (event.code in active_mappings and
-                        'modifier_group' in active_mappings.get(event.code)[0])):
+            if (code == active_group.get('code') or
+                    (code in active_mappings and
+                        'modifier_group' in active_mappings.get(code)[0])):
                 if event.value == 1:
                     active_group['name'] = \
                         active_mappings[event.code][0]['modifier_group']
@@ -61,11 +65,22 @@ async def handle_events(input: InputDevice, output: UInput, remappings, modifier
                 elif event.value == 0:
                     active_group = {}
             else:
-                if event.code in active_mappings:
-                    remap_event(output, event, active_mappings[event.code])
-                else:
-                    output.write_event(event)
-                    output.syn()
+                ignore_event = False
+                if bouncekeys is not None:
+                    now = event.timestamp()
+                    if event.value == 1:
+                        if code != ecodes.KEY_RESERVED and \
+                                code == last_code and \
+                                now - last_timestamp < bouncekeys:
+                            ignore_event = True
+                        last_code = code
+                        last_timestamp = now
+                if not ignore_event:
+                    if code in active_mappings:
+                        remap_event(output, event, active_mappings[code])
+                    else:
+                        output.write_event(event)
+                        output.syn()
     finally:
         del registered_devices[input.path]
         print('Unregistered: %s, %s, %s' % (input.name, input.path, input.phys),
@@ -298,6 +313,8 @@ def register_device(device, loop: AbstractEventLoop):
     if 'modifier_groups' in device:
         modifier_groups = device['modifier_groups']
 
+    bouncekeys = device['bouncekeys'] if 'bouncekeys' in device else None
+
     def flatmap(lst):
         return [l2 for l1 in lst for l2 in l1]
 
@@ -314,7 +331,7 @@ def register_device(device, loop: AbstractEventLoop):
     output = UInput(caps, name=device['output_name'])
     print('Registered: %s, %s, %s' % (input.name, input.path, input.phys), flush=True)
     task = loop.create_task(
-        handle_events(input, output, remappings, modifier_groups),
+        handle_events(input, output, remappings, modifier_groups, bouncekeys),
         name=input.name)
     registered_devices[input.path] = {
         'task': task,
