@@ -292,7 +292,10 @@ def register_device(device, loop: AbstractEventLoop):
     del caps[ecodes.EV_SYN]
 
     remappings = device['remappings']
-    extended = set(caps[ecodes.EV_KEY])
+    if( not ecodes.EV_KEY in caps ):
+      extended = set()
+    else:
+        extended = set(caps[ecodes.EV_KEY])
 
     modifier_groups = []
     if 'modifier_groups' in device:
@@ -311,6 +314,7 @@ def register_device(device, loop: AbstractEventLoop):
                 extended.update([remapping['code']])
 
     caps[ecodes.EV_KEY] = list(extended)
+    print(caps)
     output = UInput(caps, name=device['output_name'])
     print('Registered: %s, %s, %s' % (input.name, input.path, input.phys), flush=True)
     task = loop.create_task(
