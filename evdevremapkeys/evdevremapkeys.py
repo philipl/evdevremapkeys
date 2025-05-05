@@ -295,7 +295,7 @@ def register_device(device, loop: AbstractEventLoop):
     if( not ecodes.EV_KEY in caps ):
       extended = set()
     else:
-        extended = set(caps[ecodes.EV_KEY])
+      extended = set(caps[ecodes.EV_KEY])
 
     modifier_groups = []
     if 'modifier_groups' in device:
