@@ -314,7 +314,6 @@ def register_device(device, loop: AbstractEventLoop):
                 extended.update([remapping['code']])
 
     caps[ecodes.EV_KEY] = list(extended)
-    print(caps)
     output = UInput(caps, name=device['output_name'])
     print('Registered: %s, %s, %s' % (input.name, input.path, input.phys), flush=True)
     task = loop.create_task(
