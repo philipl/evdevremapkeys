@@ -30,9 +30,9 @@ import pytest
 import yaml
 
 spec_dir = os.path.dirname(os.path.realpath(__file__))
-sys.path.append('{}/..'.format(spec_dir))
+sys.path.append("{}/..".format(spec_dir))
 
-sample_config_data = '''
+sample_config_data = """
 devices:
 - input_name: ''
   input_fn: ''
@@ -70,7 +70,7 @@ devices:
       - code: KEY_F
         param3: p1
         param4: p2
-'''
+"""
 
 
 @pytest.fixture
@@ -80,63 +80,63 @@ def sample_config():
 
 
 def remapping(config, code):
-    return config['devices'][0]['remappings'].get(code)
+    return config["devices"][0]["remappings"].get(code)
 
 
 def modified_remapping(config, code):
-    return config['devices'][0]['modifier_groups']['mod1'].get(code)
+    return config["devices"][0]["modifier_groups"]["mod1"].get(code)
 
 
 def test_supports_simple_notation(sample_config):
     mapping = remapping(sample_config, ecodes.KEY_A)
-    assert [{'code': 30}] == mapping
+    assert [{"code": 30}] == mapping
 
 
 def test_supports_advanced_notation(sample_config):
     mapping = remapping(sample_config, ecodes.KEY_B)
-    assert [{'code': 30}] == mapping
+    assert [{"code": 30}] == mapping
 
 
 def test_resolves_single_value(sample_config):
     mapping = remapping(sample_config, ecodes.KEY_C)
-    assert [{'code': 30, 'value': [1]}] == mapping
+    assert [{"code": 30, "value": [1]}] == mapping
 
 
 def test_accepts_multiple_values(sample_config):
     mapping = remapping(sample_config, ecodes.KEY_D)
-    assert [{'code': 30, 'value': [1, 2]}] == mapping
+    assert [{"code": 30, "value": [1, 2]}] == mapping
 
 
 def test_accepts_other_parameters(sample_config):
     mapping = remapping(sample_config, ecodes.KEY_E)
-    assert [{'code': 30, 'param1': 'p1', 'param2': 'p2'}] == mapping
+    assert [{"code": 30, "param1": "p1", "param2": "p2"}] == mapping
 
 
 def test_accepts_modifier(sample_config):
     mapping = remapping(sample_config, ecodes.KEY_Z)
-    assert [{'modifier_group': 'mod1'}] == mapping
+    assert [{"modifier_group": "mod1"}] == mapping
 
 
 def test_mod_group_supports_simple_notation(sample_config):
     mapping = modified_remapping(sample_config, ecodes.KEY_A)
-    assert [{'code': 33}] == mapping
+    assert [{"code": 33}] == mapping
 
 
 def test_mod_group_supports_advanced_notation(sample_config):
     mapping = modified_remapping(sample_config, ecodes.KEY_B)
-    assert [{'code': 33}] == mapping
+    assert [{"code": 33}] == mapping
 
 
 def test_mod_group_resolves_single_value(sample_config):
     mapping = modified_remapping(sample_config, ecodes.KEY_C)
-    assert [{'code': 33, 'value': [2]}] == mapping
+    assert [{"code": 33, "value": [2]}] == mapping
 
 
 def test_mod_group_accepts_multiple_values(sample_config):
     mapping = modified_remapping(sample_config, ecodes.KEY_D)
-    [{'code': 33, 'value': [1, 3]}] == mapping
+    [{"code": 33, "value": [1, 3]}] == mapping
 
 
 def test_mod_group_accepts_other_parameters(sample_config):
     mapping = modified_remapping(sample_config, ecodes.KEY_E)
-    assert [{'code': 33, 'param3': 'p1', 'param4': 'p2'}] == mapping
+    assert [{"code": 33, "param3": "p1", "param4": "p2"}] == mapping
