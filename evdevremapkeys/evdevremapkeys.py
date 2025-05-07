@@ -308,9 +308,15 @@ def register_device(device, loop: AbstractEventLoop):
     # EV_SYN is automatically added to uinput devices
     del caps[ecodes.EV_SYN]
 
-    remappings = device["remappings"]
-    extended = set(caps[ecodes.EV_KEY])
+    remappings = device['remappings']
+    if( not ecodes.EV_KEY in caps ):
+      extended = set() 
+    else:
+      extended = set(caps[ecodes.EV_KEY])
 
+    if 'dummy_buttons' in device: #add dummy buttons
+        extended |= set(device['dummy_buttons'])
+        
     modifier_groups = []
     if "modifier_groups" in device:
         modifier_groups = device["modifier_groups"]
@@ -328,8 +334,15 @@ def register_device(device, loop: AbstractEventLoop):
                 extended.update([remapping["code"]])
 
     caps[ecodes.EV_KEY] = list(extended)
-    output = UInput(caps, name=device["output_name"])
-    print("Registered: %s, %s, %s" % (input.name, input.path, input.phys), flush=True)
+
+    output = UInput(caps, 
+    name=device['output_name'],
+    vendor=input.info.vendor if not 'vendor_id' in device else device['vendor_id'],        
+    product=input.info.product if not 'product_id' in device else device['product_id'],      
+    version=input.info.version if not 'version' in device else device['version'],     
+    bustype=0x06 if not 'bustype' in device else device['bustype'],         # USB 0x06, virtual 0x03 etc
+    )
+    print('Registered: %s, %s, %s' % (input.name, input.path, input.phys), flush=True)
     task = loop.create_task(
         handle_events(input, output, remappings, modifier_groups), name=input.name
     )
