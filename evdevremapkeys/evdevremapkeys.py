@@ -317,7 +317,6 @@ def register_device(device, loop: AbstractEventLoop):
     if 'dummy_buttons' in device: #add dummy buttons
         extended |= set(device['dummy_buttons'])
         
-    print(extended)
     modifier_groups = []
     if "modifier_groups" in device:
         modifier_groups = device["modifier_groups"]
