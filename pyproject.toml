@@ -1,0 +1,45 @@
+[project]
+name = "evdevremapkeys"
+version = "0.1"
+keywords = ["evdev", "uinput"]
+description = "A daemon to remap key events on linux input devices"
+readme = "README.md"
+authors = [
+    {name = "Philip Langdale", email = "philipl@overt.org"}
+]
+license = "MIT"
+
+requires-python = '>=3.8'
+
+dependencies = [
+    "evdev >= 1.3.0",
+    "pyudev >= 0.22.0",
+    "pyxdg >= 0.26",
+    "PyYAML >= 5.3",
+]
+
+[project.scripts]
+evdevremapkeys = "evdevremapkeys.evdevremapkeys:main"
+
+[project.urls]
+Homepage = "https://github.com/philipl/evdevremapkeys"
+
+[dependency-groups]
+dev = [
+    "pytest >= 7.4.4",
+    "pyinstaller >= 6.11.0",
+    "staticx >= 0.9.1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+  ".git/",
+  ".github/",
+]
+
+[tool.ruff.lint]
+extend-select = ["E", "W", "F"]

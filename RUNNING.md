@@ -31,7 +31,45 @@ is all handled by logind/systemd/X automatically.
 
 # Software Setup
 
+## Prerequisites
+
+This project uses [uv](https://docs.astral.sh/uv/) to build and run. You will need to install
+`uv` yourself, and you can follow their official documentation if you wish. My personal
+preference is to use `pipx` to install `uv`.
+
+On Ubuntu:
+
+```bash
+$ sudo apt install pipx
+$ pipx install uv
+```
+
+## Running from the source directory
+
+To run from the source directory (checked out of git, or unpacked tarball), simply do:
+
+```bash
+$ uv run evdevremapkeys
+```
+
+## Installing from source
+
+I recommend using `pipx` to install the program and make it accessible in your user environment.
+
+```bash
+$ pipx install <path/to/git/checkout>
+```
+
+or
+
+```bash
+$ pipx install <source-tarball>
+```
+
 ## Building a self-contained executable
+
+You will not usually need a self-contained executable, given the existing options for running
+and installing the program, but it is possible to build one, if you wish.
 
 Run `build-binary.sh`. It assumes you have pip installed. This will download and install all dependencies,
 compile the python to excutable code using PyInstaller, then bundle all the dynamic modules into a
