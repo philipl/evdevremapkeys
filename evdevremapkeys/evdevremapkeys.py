@@ -28,10 +28,11 @@ from collections.abc import Iterable
 import functools
 from pathlib import Path
 import signal
+from typing import Optional, Sequence, cast
 
 
 import evdev
-from evdev import ecodes, InputDevice, UInput
+from evdev import KeyEvent, ecodes, InputDevice, UInput
 import pyudev
 from xdg import BaseDirectory
 import yaml
@@ -304,7 +305,7 @@ def register_device(device, loop: AbstractEventLoop):
         return None
     input.grab()
 
-    caps = input.capabilities()
+    caps = cast(dict[int, Sequence[int]], input.capabilities())
     # EV_SYN is automatically added to uinput devices
     del caps[ecodes.EV_SYN]
 
@@ -409,14 +410,15 @@ def list_devices():
 
 
 def read_events(req_device):
+    found: Optional[InputDevice] = None
     for device in list_devices():
         # Look in all 3 identifiers + event number
         if req_device in device or req_device == device[0].replace(
             "/dev/input/event", ""
         ):
-            found = evdev.InputDevice(device[0])
+            found = InputDevice(device[0])
 
-    if "found" not in locals():
+    if not found:
         print(
             "Device not found. \n"
             "Please use --list-devices to view a list of available devices."
@@ -430,6 +432,7 @@ def read_events(req_device):
         try:
             if event.type == evdev.ecodes.EV_KEY:
                 categorized = evdev.categorize(event)
+                assert isinstance(categorized, KeyEvent)
                 if categorized.keystate == 1:
                     keycode = (
                         categorized.keycode
