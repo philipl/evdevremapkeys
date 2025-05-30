@@ -73,7 +73,9 @@ async def handle_events(
     finally:
         registered_devices[input.path]["input"] = None
         registered_devices[input.path]["task"] = None
-        print(f"Device disconnected: {input.name} ({input.path}) {input.phys}", flush=True)
+        print(
+            f"Device disconnected: {input.name} ({input.path}) {input.phys}", flush=True
+        )
         input.close()
 
 
@@ -280,22 +282,25 @@ def find_input(device):
 
     devices = [InputDevice(fn) for fn in evdev.list_devices()]
     for input in devices:
-        #print(registered_devices)
-        #print(input.path)
+        # print(registered_devices)
+        # print(input.path)
         if name is not None and input.name != name:
             continue
         if phys is not None and input.phys != phys:
             continue
         if fn is not None and input.path != fn:
             continue
-        if input.path in registered_devices and registered_devices[input.path]["input"] != None:
+        if (
+            input.path in registered_devices
+            and registered_devices[input.path]["input"] is not None
+        ):
             continue
         return input
     return None
 
 
 def register_device(device, loop: AbstractEventLoop):
-    #print("reg dev", flush=True)
+    # print("reg dev", flush=True)
     for value in registered_devices.values():
         if device == value["device"] and value["task"]:
             return value["task"]
@@ -304,28 +309,28 @@ def register_device(device, loop: AbstractEventLoop):
     if input is None:
         return None
 
-    #reuse output
+    # reuse output
     existing_output = None
     for val in registered_devices.values():
         if val["device"] == device:
             existing_output = val["output"]
             break
-        
+
     input.grab()
 
     caps = input.capabilities()
     # EV_SYN is automatically added to uinput devices
     del caps[ecodes.EV_SYN]
 
-    remappings = device['remappings']
-    if( not ecodes.EV_KEY in caps ):
-      extended = set() 
+    remappings = device["remappings"]
+    if ecodes.EV_KEY not in caps:
+        extended = set()
     else:
-      extended = set(caps[ecodes.EV_KEY])
+        extended = set(caps[ecodes.EV_KEY])
 
-    if 'dummy_buttons' in device: #add dummy buttons
-        extended |= set(device['dummy_buttons'])
-        
+    if "dummy_buttons" in device:  # add dummy buttons
+        extended |= set(device["dummy_buttons"])
+
     modifier_groups = []
     if "modifier_groups" in device:
         modifier_groups = device["modifier_groups"]
@@ -344,20 +349,16 @@ def register_device(device, loop: AbstractEventLoop):
 
     caps[ecodes.EV_KEY] = list(extended)
 
-    if not existing_output:
+    extra_options = {"name": device["output_name"]}
 
-        output = UInput(caps, 
-                    name=device['output_name'],
-                    vendor=input.info.vendor if not 'vendor_id' in device else device['vendor_id'],        
-                    product=input.info.product if not 'product_id' in device else device['product_id'],      
-                    version=input.info.version if not 'version' in device else device['version'],     
-                    bustype=0x06 if not 'bustype' in device else device['bustype'],         # USB 0x06, virtual 0x03 etc
-        )
-        print('Registered: %s, %s, %s' % (input.name, input.path, input.phys), flush=True)
-    else:
-        output = existing_output
-        print('Reused: %s, %s, %s' % (input.name, input.path, input.phys), flush=True)
-        
+    for k, v in device.items():
+        if k in ["vendor", "product", "version", "bustype"]:
+            extra_options[k] = v
+
+    if not existing_output:
+        output = UInput(caps, **extra_options)
+
+    print("Registered: %s, %s, %s" % (input.name, input.path, input.phys), flush=True)
     task = loop.create_task(
         handle_events(input, output, remappings, modifier_groups), name=input.name
     )
@@ -365,7 +366,7 @@ def register_device(device, loop: AbstractEventLoop):
         "task": task,
         "device": device,
         "input": input,
-        "output": output
+        "output": output,
     }
     return task
 
