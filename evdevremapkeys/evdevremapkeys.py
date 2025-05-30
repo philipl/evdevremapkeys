@@ -73,10 +73,7 @@ async def handle_events(
                     output.syn()
     finally:
         del registered_devices[input.path]
-        print(
-            "Unregistered: %s, %s, %s" % (input.name, input.path, input.phys),
-            flush=True,
-        )
+        print(f"Unregistered: {input.name} ({input.path}) {input.phys}", flush=True)
         input.close()
 
 
@@ -303,6 +300,7 @@ def register_device(device, loop: AbstractEventLoop):
     input = find_input(device)
     if input is None:
         return None
+
     input.grab()
 
     caps = cast(dict[int, Sequence[int]], input.capabilities())
@@ -310,7 +308,13 @@ def register_device(device, loop: AbstractEventLoop):
     del caps[ecodes.EV_SYN]
 
     remappings = device["remappings"]
-    extended = set(caps[ecodes.EV_KEY])
+    if ecodes.EV_KEY not in caps:
+        extended = set()
+    else:
+        extended = set(caps[ecodes.EV_KEY])
+
+    if "dummy_buttons" in device:  # add dummy buttons
+        extended |= set(device["dummy_buttons"])
 
     modifier_groups = []
     if "modifier_groups" in device:
@@ -329,8 +333,16 @@ def register_device(device, loop: AbstractEventLoop):
                 extended.update([remapping["code"]])
 
     caps[ecodes.EV_KEY] = list(extended)
-    output = UInput(caps, name=device["output_name"])
+
+    extra_options = {"name": device["output_name"]}
+
+    for k, v in device.items():
+        if k in ["vendor", "product", "version", "bustype"]:
+            extra_options[k] = v
+
+    output = UInput(caps, **extra_options)
     print("Registered: %s, %s, %s" % (input.name, input.path, input.phys), flush=True)
+
     task = loop.create_task(
         handle_events(input, output, remappings, modifier_groups), name=input.name
     )
