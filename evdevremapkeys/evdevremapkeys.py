@@ -279,8 +279,6 @@ def find_input(device):
 
     devices = [InputDevice(fn) for fn in evdev.list_devices()]
     for input in devices:
-        # print(registered_devices)
-        # print(input.path)
         if name is not None and input.name != name:
             continue
         if phys is not None and input.phys != phys:
