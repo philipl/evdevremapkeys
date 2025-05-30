@@ -1,6 +1,0 @@
-devices:
-  - input_name: "Thrustmaster T-Rudder"
-    output_name: "T-Rudder"
-    product: 0x1234
-    dummy_buttons: [304, 305]
-    remappings: {}
