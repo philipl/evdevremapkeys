@@ -357,11 +357,13 @@ def register_device(device, loop: AbstractEventLoop):
 
     if not existing_output:
         output = UInput(caps, **extra_options)
-        print("Registered: %s, %s, %s" % (input.name, input.path, input.phys), flush=True)
+        print(
+            "Registered: %s, %s, %s" % (input.name, input.path, input.phys), flush=True
+        )
     else:
         output = existing_output
         print("Reused: %s, %s, %s" % (input.name, input.path, input.phys), flush=True)
-        
+
     task = loop.create_task(
         handle_events(input, output, remappings, modifier_groups), name=input.name
     )
