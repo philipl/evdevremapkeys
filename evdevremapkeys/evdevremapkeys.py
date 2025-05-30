@@ -71,10 +71,10 @@ async def handle_events(
                     output.write_event(event)
                     output.syn()
     finally:
-        del registered_devices[input.path]
+        registered_devices[input.path]["input"] = None
+        registered_devices[input.path]["task"] = None
         print(
-            "Unregistered: %s, %s, %s" % (input.name, input.path, input.phys),
-            flush=True,
+            f"Device disconnected: {input.name} ({input.path}) {input.phys}", flush=True
         )
         input.close()
 
@@ -282,26 +282,40 @@ def find_input(device):
 
     devices = [InputDevice(fn) for fn in evdev.list_devices()]
     for input in devices:
+        # print(registered_devices)
+        # print(input.path)
         if name is not None and input.name != name:
             continue
         if phys is not None and input.phys != phys:
             continue
         if fn is not None and input.path != fn:
             continue
-        if input.path in registered_devices:
+        if (
+            input.path in registered_devices
+            and registered_devices[input.path]["input"] != None
+        ):
             continue
         return input
     return None
 
 
 def register_device(device, loop: AbstractEventLoop):
+    # print("reg dev", flush=True)
     for value in registered_devices.values():
-        if device == value["device"]:
+        if device == value["device"] and value["task"]:
             return value["task"]
 
     input = find_input(device)
     if input is None:
         return None
+
+    # reuse output
+    existing_output = None
+    for val in registered_devices.values():
+        if val["device"] == device:
+            existing_output = val["output"]
+            break
+
     input.grab()
 
     caps = input.capabilities()
@@ -317,7 +331,6 @@ def register_device(device, loop: AbstractEventLoop):
     if "dummy_buttons" in device:  # add dummy buttons
         extended |= set(device["dummy_buttons"])
 
-    print(extended)
     modifier_groups = []
     if "modifier_groups" in device:
         modifier_groups = device["modifier_groups"]
@@ -339,12 +352,18 @@ def register_device(device, loop: AbstractEventLoop):
     extra_options = {"name": device["output_name"]}
 
     for k, v in device.items():
-        if k in ["vendor_id", "product_id", "version", "bustype"]:
+        if k in ["vendor", "product", "version", "bustype"]:
             extra_options[k] = v
 
-    output = UInput(caps, extra_options)
+    if not existing_output:
+        output = UInput(caps, **extra_options)
+        print(
+            "Registered: %s, %s, %s" % (input.name, input.path, input.phys), flush=True
+        )
+    else:
+        output = existing_output
+        print("Reused: %s, %s, %s" % (input.name, input.path, input.phys), flush=True)
 
-    print("Registered: %s, %s, %s" % (input.name, input.path, input.phys), flush=True)
     task = loop.create_task(
         handle_events(input, output, remappings, modifier_groups), name=input.name
     )
@@ -352,6 +371,7 @@ def register_device(device, loop: AbstractEventLoop):
         "task": task,
         "device": device,
         "input": input,
+        "output": output,
     }
     return task
 
