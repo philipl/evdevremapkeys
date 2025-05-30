@@ -292,7 +292,7 @@ def find_input(device):
             continue
         if (
             input.path in registered_devices
-            and registered_devices[input.path]["input"] != None
+            and registered_devices[input.path]["input"] is not None
         ):
             continue
         return input
@@ -323,7 +323,7 @@ def register_device(device, loop: AbstractEventLoop):
     del caps[ecodes.EV_SYN]
 
     remappings = device["remappings"]
-    if not ecodes.EV_KEY in caps:
+    if ecodes.EV_KEY not in caps:
         extended = set()
     else:
         extended = set(caps[ecodes.EV_KEY])
@@ -357,13 +357,11 @@ def register_device(device, loop: AbstractEventLoop):
 
     if not existing_output:
         output = UInput(caps, **extra_options)
-        print(
-            "Registered: %s, %s, %s" % (input.name, input.path, input.phys), flush=True
-        )
+        print("Registered: %s, %s, %s" % (input.name, input.path, input.phys), flush=True)
     else:
         output = existing_output
         print("Reused: %s, %s, %s" % (input.name, input.path, input.phys), flush=True)
-
+        
     task = loop.create_task(
         handle_events(input, output, remappings, modifier_groups), name=input.name
     )
