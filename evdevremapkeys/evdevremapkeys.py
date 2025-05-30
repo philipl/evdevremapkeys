@@ -73,7 +73,7 @@ async def handle_events(
     finally:
         del registered_devices[input.path]
         print(
-            f"Device disconnected: {input.name} ({input.path}) {input.phys}", flush=True
+            f"Unregistered: {input.name} ({input.path}) {input.phys}", flush=True
         )
         input.close()
 
