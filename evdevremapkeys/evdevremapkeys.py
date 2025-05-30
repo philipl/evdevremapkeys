@@ -71,8 +71,7 @@ async def handle_events(
                     output.write_event(event)
                     output.syn()
     finally:
-        registered_devices[input.path]["input"] = None
-        registered_devices[input.path]["task"] = None
+        del registered_devices[input.path]
         print(
             f"Device disconnected: {input.name} ({input.path}) {input.phys}", flush=True
         )
@@ -290,31 +289,20 @@ def find_input(device):
             continue
         if fn is not None and input.path != fn:
             continue
-        if (
-            input.path in registered_devices
-            and registered_devices[input.path]["input"] is not None
-        ):
+        if input.path in registered_devices:
             continue
         return input
     return None
 
 
 def register_device(device, loop: AbstractEventLoop):
-    # print("reg dev", flush=True)
     for value in registered_devices.values():
-        if device == value["device"] and value["task"]:
+        if device == value["device"]:
             return value["task"]
 
     input = find_input(device)
     if input is None:
         return None
-
-    # reuse output
-    existing_output = None
-    for val in registered_devices.values():
-        if val["device"] == device:
-            existing_output = val["output"]
-            break
 
     input.grab()
 
@@ -355,14 +343,8 @@ def register_device(device, loop: AbstractEventLoop):
         if k in ["vendor", "product", "version", "bustype"]:
             extra_options[k] = v
 
-    if not existing_output:
-        output = UInput(caps, **extra_options)
-        print(
-            "Registered: %s, %s, %s" % (input.name, input.path, input.phys), flush=True
-        )
-    else:
-        output = existing_output
-        print("Reused: %s, %s, %s" % (input.name, input.path, input.phys), flush=True)
+    output = UInput(caps, **extra_options)
+    print("Registered: %s, %s, %s" % (input.name, input.path, input.phys), flush=True)
 
     task = loop.create_task(
         handle_events(input, output, remappings, modifier_groups), name=input.name
@@ -371,7 +353,6 @@ def register_device(device, loop: AbstractEventLoop):
         "task": task,
         "device": device,
         "input": input,
-        "output": output,
     }
     return task
 
