@@ -47,3 +47,9 @@ devices:
     - code: KEY_A
       value: [1,0,1,0]
       repeat: true
+- input_name: "Thrustmaster T-Rudder" # Example for using rudder pedals without buttons (and a changed productid to make wine recognize it)
+  output_name: "T-Rudder"
+  product: 0x1234
+  dummy_buttons: [304, 305]
+  remappings: {}
+  
