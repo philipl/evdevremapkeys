@@ -72,9 +72,7 @@ async def handle_events(
                     output.syn()
     finally:
         del registered_devices[input.path]
-        print(
-            f"Unregistered: {input.name} ({input.path}) {input.phys}", flush=True
-        )
+        print(f"Unregistered: {input.name} ({input.path}) {input.phys}", flush=True)
         input.close()
 
 
