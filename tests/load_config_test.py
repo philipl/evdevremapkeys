@@ -24,10 +24,11 @@ import io
 import os
 import sys
 
-from evdev import ecodes
-from evdevremapkeys.evdevremapkeys import parse_config
 import pytest
 import yaml
+from evdev import ecodes
+
+from evdevremapkeys.evdevremapkeys import parse_config
 
 spec_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.append("{}/..".format(spec_dir))
@@ -134,7 +135,7 @@ def test_mod_group_resolves_single_value(sample_config):
 
 def test_mod_group_accepts_multiple_values(sample_config):
     mapping = modified_remapping(sample_config, ecodes.KEY_D)
-    [{"code": 33, "value": [1, 3]}] == mapping
+    assert [{"code": 33, "value": [1, 3]}] == mapping
 
 
 def test_mod_group_accepts_other_parameters(sample_config):

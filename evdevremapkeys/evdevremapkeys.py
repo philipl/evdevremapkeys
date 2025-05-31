@@ -23,48 +23,80 @@
 
 import argparse
 import asyncio
+import functools
+import signal
 from asyncio.events import AbstractEventLoop
 from collections.abc import Iterable
-import functools
 from pathlib import Path
-import signal
-from typing import Optional, Sequence, cast
-
+from typing import Any, Collection, Optional, Sequence, TypedDict, cast
 
 import evdev
-from evdev import KeyEvent, ecodes, InputDevice, UInput
 import pyudev
-from xdg import BaseDirectory
 import yaml
+from evdev import InputDevice, InputEvent, KeyEvent, UInput, ecodes
+from xdg import BaseDirectory
 
 DEFAULT_RATE = 0.1  # seconds
-repeat_tasks = {}
-remapped_tasks = {}
-registered_devices = {}
+repeat_tasks: dict[int, asyncio.Task] = {}
+remapped_tasks: dict[int, int] = {}
+registered_devices: dict[str, dict[str, Any]] = {}
+
+
+class Remapping(TypedDict):
+    code: int
+    value: list[int]
+    repeat: bool
+    count: int
+    modifier_group: str
+
+
+type Remappings = dict[int, list[Remapping]]
+type ModifierGroups = dict[str, Remappings]
+
+
+class Device(TypedDict):
+    input_name: str
+    input_fn: str
+    output_name: str
+    remappings: Remappings
+    modifier_groups: ModifierGroups
+
+
+class Config(TypedDict):
+    devices: list[Device]
+
+
+class ActiveGroup(TypedDict):
+    name: str
+    code: int
 
 
 async def handle_events(
-    input: InputDevice, output: UInput, remappings, modifier_groups
+    input: InputDevice,
+    output: UInput,
+    remappings: Remappings,
+    modifier_groups: ModifierGroups,
 ):
-    active_group = {}
+    active_group: Optional[ActiveGroup] = None
     try:
         async for event in input.async_read_loop():
+            event = cast(InputEvent, event)
             if not active_group:
                 active_mappings = remappings
             else:
                 active_mappings = modifier_groups[active_group["name"]]
 
-            if event.code == active_group.get("code") or (
+            if (active_group and event.code == active_group.get("code")) or (
                 event.code in active_mappings
-                and "modifier_group" in active_mappings.get(event.code)[0]
+                and "modifier_group" in active_mappings[event.code][0]
             ):
                 if event.value == 1:
-                    active_group["name"] = active_mappings[event.code][0][
-                        "modifier_group"
-                    ]
-                    active_group["code"] = event.code
+                    active_group = {
+                        "name": active_mappings[event.code][0]["modifier_group"],
+                        "code": event.code,
+                    }
                 elif event.value == 0:
-                    active_group = {}
+                    active_group = None
             else:
                 if event.code in active_mappings:
                     remap_event(output, event, active_mappings[event.code])
@@ -80,7 +112,9 @@ async def handle_events(
         input.close()
 
 
-async def repeat_event(event, rate, count, values, output):
+async def repeat_event(
+    event: InputEvent, rate: float, count: int, values: list[int], output: UInput
+):
     if count == 0:
         count = -1
     while count != 0:
@@ -92,7 +126,7 @@ async def repeat_event(event, rate, count, values, output):
         await asyncio.sleep(rate)
 
 
-def remap_event(output, event, event_remapping):
+def remap_event(output: UInput, event: InputEvent, event_remapping: list[Remapping]):
     for remapping in event_remapping:
         original_code = event.code
         event.code = remapping["code"]
@@ -176,7 +210,7 @@ def remap_event(output, event, event_remapping):
 #        'mod1': { -- is the same as 'remappings' --}
 #    }
 #  }]
-def load_config(config_override):
+def load_config(config_override: str):
     conf_path = None
     if config_override is None:
         for dir in BaseDirectory.load_config_paths("evdevremapkeys"):
@@ -191,11 +225,11 @@ def load_config(config_override):
             raise NameError("Cannot open %s" % config_override)
 
     with open(conf_path.as_posix(), "r") as fd:
-        config = yaml.safe_load(fd)
+        config: dict[str, Any] = yaml.safe_load(fd)
         return parse_config(config)
 
 
-def parse_config(config):
+def parse_config(config: dict[str, Any]) -> Config:
     for device in config["devices"]:
         device["remappings"] = normalize_config(device["remappings"])
         device["remappings"] = resolve_ecodes(device["remappings"])
@@ -208,7 +242,7 @@ def parse_config(config):
                     device["modifier_groups"][group]
                 )
 
-    return config
+    return cast(Config, config)
 
 
 # Converts general config schema
@@ -229,7 +263,7 @@ def parse_config(config):
 #         {'code': 'KEY_Y', 'value': [1,0]]}
 #     ]
 # }}
-def normalize_config(remappings):
+def normalize_config(remappings: dict[str, Any]):
     norm = {}
     for key, mappings in remappings.items():
         new_mappings = []
@@ -243,14 +277,14 @@ def normalize_config(remappings):
     return norm
 
 
-def normalize_value(mapping):
+def normalize_value(mapping: dict[str, Any]):
     value = mapping.get("value")
     if value is None or type(value) is list:
         return
     mapping["value"] = [mapping["value"]]
 
 
-def resolve_ecodes(by_name):
+def resolve_ecodes(by_name: dict[str, Any]):
     def resolve_mapping(mapping):
         if "code" in mapping:
             code = mapping["code"]
@@ -270,7 +304,7 @@ def resolve_ecodes(by_name):
     }
 
 
-def find_input(device):
+def find_input(device: Device):
     name = device.get("input_name", None)
     phys = device.get("input_phys", None)
     fn = device.get("input_fn", None)
@@ -295,7 +329,7 @@ def find_input(device):
     return None
 
 
-def register_device(device, loop: AbstractEventLoop):
+def register_device(device: Device, loop: AbstractEventLoop):
     for value in registered_devices.values():
         if device == value["device"]:
             return value["task"]
@@ -312,11 +346,11 @@ def register_device(device, loop: AbstractEventLoop):
     remappings = device["remappings"]
     extended = set(caps[ecodes.EV_KEY])
 
-    modifier_groups = []
+    modifier_groups: ModifierGroups = {}
     if "modifier_groups" in device:
         modifier_groups = device["modifier_groups"]
 
-    def flatmap(lst):
+    def flatmap(lst: Collection[Collection[Any]]):
         return [l2 for l1 in lst for l2 in l1]
 
     for remapping in flatmap(remappings.values()):
@@ -353,7 +387,7 @@ async def shutdown(loop: AbstractEventLoop):
     loop.stop()
 
 
-def handle_udev_event(monitor, config, loop):
+def handle_udev_event(monitor: pyudev.Monitor, config: Config, loop: AbstractEventLoop):
     count = 0
     while True:
         device = monitor.poll(0)
@@ -370,7 +404,7 @@ def create_shutdown_task(loop: AbstractEventLoop):
     return loop.create_task(shutdown(loop))
 
 
-def run_loop(args):
+def run_loop(args: argparse.Namespace):
     context = pyudev.Context()
     monitor = pyudev.Monitor.from_netlink(context)
     monitor.filter_by("input")
@@ -409,7 +443,7 @@ def list_devices():
         yield [device.path, device.phys, device.name]
 
 
-def read_events(req_device):
+def read_events(req_device: str):
     found: Optional[InputDevice] = None
     for device in list_devices():
         # Look in all 3 identifiers + event number
