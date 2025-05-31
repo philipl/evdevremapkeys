@@ -45,31 +45,13 @@ client receives events, and then forward all un-modified events through
 your virtual device. It's annoying but unavoidable - you can't hide individual
 events from other clients.
 
-## Why not evmapd
+## libinput's lua plugin based future?
 
-There is an existing project called [evmapd](https://github.com/thkala/evmapd)
-which is, ostensibly, exactly what we're looking for - a daemon that will
-take input events from one device, and then generate new events on a different
-uinput based device. I made a serious attempt at using it but ultimately found
-it too limiting to rely on:
-* It doesn't support 1:N mappings, which I particularly care about
-  * eg: Mapping a mouse button to a key combination like `Super+A`
-* It relies on an obscure and hard to obtain library for command line
-  argument handling (libcfg+)
-* It's written in C, which I will always respect, but which doesn't add much
-  value to this kind of program
-* It's doesn't look actively maintained; it solved whatever problem the author
-  originally had, and that was it.
-
-Having said all that, it has a set of capabilities to handle remappings that
-are not from keys to other keys - particuarly creating virtual joystick axes
-from key events. If you care about those capabilities, you should use evmapd.
-I'm not going to expand beyond key to key remappings.
-
-## Requirements
-
-* Python >= 3.4 (for [asyncio](https://docs.python.org/3/library/asyncio.html))
-* [python-daemon](https://pypi.python.org/pypi/python-daemon) >= 2.1.2
-* [Python evdev binding](https://pypi.python.org/pypi/evdev) >= 0.7.0
-* [pyxdg](https://pypi.python.org/pypi/pyxdg) > 0.25
-* [PyYAML](https://pypi.python.org/pypi/PyYAML) >= 3.12
+In the years since I first wrote `evdevremapkeys`, there wasn'tt been any real
+movement towards exposing a meaningful remapping capability from libinput. In
+2025, they started development of a
+[lua](https://gitlab.freedesktop.org/libinput/libinput/-/merge_requests/1192)
+plugin framework, which might turn out to be a real solution. When that lands,
+and as long as it doesn't depend on the Wayland compositor to expose access to
+it, it might turn out to be a better long term approach. But it's too early to
+say right now.

@@ -71,13 +71,13 @@ $ pipx install <source-tarball>
 You will not usually need a self-contained executable, given the existing options for running
 and installing the program, but it is possible to build one, if you wish.
 
-Run `build-binary.sh`. It assumes you have pip installed. This will download and install all dependencies,
+Run `build-binary.sh`. It assumes you have uv installed. This will download and install all dependencies,
 compile the python to excutable code using PyInstaller, then bundle all the dynamic modules into a
 single static executable using StaticX. You may need to install patchelf on your system.
 
 ## Running evdevremapkeys as a user background service
 
-You shouldn't run evdevremapkeys as a system service, these means everyone using the tablet will
+You shouldn't run evdevremapkeys as a system service, these means everyone using it will
 have the exact same config.
 
 systemd supports user-level services, where each user can have their own evdevremapkeys instance. It
