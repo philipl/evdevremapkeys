@@ -127,11 +127,13 @@ async def repeat_event(
 
 
 def remap_event(output: UInput, event: InputEvent, event_remapping: list[Remapping]):
+    original_type = event.type
+    original_value = event.value
+    original_code = event.code
     for remapping in event_remapping:
-        original_code = event.code
         event.code = remapping["code"]
-        event.type = remapping.get("type", None) or event.type
-        values = remapping.get("value", None) or [event.value]
+        event.type = remapping.get("type", None) or original_type
+        values = remapping.get("value", None) or [original_value]
         repeat = remapping.get("repeat", False)
         delay = remapping.get("delay", False)
         if not repeat and not delay:
