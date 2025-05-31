@@ -28,7 +28,7 @@ import signal
 from asyncio.events import AbstractEventLoop
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Collection, Optional, Sequence, TypeAlias, TypedDict, cast
+from typing import Any, Collection, Optional, Sequence, TypedDict, cast
 
 import evdev
 import pyudev
@@ -50,8 +50,8 @@ class Remapping(TypedDict):
     modifier_group: str
 
 
-Remappings: TypeAlias = dict[int, list[Remapping]]
-ModifierGroups: TypeAlias = dict[str, Remappings]
+Remappings = dict[int, list[Remapping]]
+ModifierGroups = dict[str, Remappings]
 
 
 class Device(TypedDict):
