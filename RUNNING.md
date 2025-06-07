@@ -31,6 +31,16 @@ is all handled by logind/systemd/X automatically.
 
 # Software Setup
 
+## Install from PyPI
+
+The recommended way to install the program is to use `pipx`.
+
+```bash
+$ pipx install evdevremapkeys
+```
+
+You can also use `pip`, but on modern distros, `pipx` is a far better experience.
+
 ## Prerequisites
 
 This project uses [uv](https://docs.astral.sh/uv/) to build and run. You will need to install
@@ -65,6 +75,9 @@ or
 ```bash
 $ pipx install <source-tarball>
 ```
+
+If you are trying to do active developing, installing with `--editable` will cause the
+installation to always reflect your changes.
 
 ## Building a self-contained executable
 

@@ -45,13 +45,36 @@ client receives events, and then forward all un-modified events through
 your virtual device. It's annoying but unavoidable - you can't hide individual
 events from other clients.
 
-## libinput's lua plugin based future?
+# Software Setup
 
-In the years since I first wrote `evdevremapkeys`, there wasn'tt been any real
-movement towards exposing a meaningful remapping capability from libinput. In
-2025, they started development of a
-[lua](https://gitlab.freedesktop.org/libinput/libinput/-/merge_requests/1192)
-plugin framework, which might turn out to be a real solution. When that lands,
-and as long as it doesn't depend on the Wayland compositor to expose access to
-it, it might turn out to be a better long term approach. But it's too early to
-say right now.
+## Install from PyPI
+
+The recommended way to install the program is to use `pipx`.
+
+```bash
+$ pipx install evdevremapkeys
+```
+
+You can also use `pip`, but on modern distros, `pipx` is a far better experience.
+
+## Create a configuration
+
+You will need to create an initial configuration file for the program to be
+able to run and doing anything useful.
+
+It's recommended to start from one of the
+[example](https://github.com/philipl/evdevremapkeys/tree/master/examples) config
+files and adapt it for your hardware and the remapping you need.
+
+Place your final file at: `~/.config/evdevremapkeys/config.yml`
+
+## Run the program
+
+```bash
+evdevremapkeys
+```
+
+## More details
+
+See [RUNNING.md](https://github.com/philipl/evdevremapkeys/blob/master/RUNNING.md) for
+more details.
