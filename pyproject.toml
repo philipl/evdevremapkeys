@@ -40,6 +40,9 @@ build-backend = "hatchling.build"
 [tool.hatch.version]
 source = "vcs"
 
+[tool.hatch.metadata.hooks.vcs.urls]
+Homepage = "https://github.com/philipl/evdevremapkeys"
+
 [tool.hatch.build.targets.sdist]
 exclude = [
   ".git/",
