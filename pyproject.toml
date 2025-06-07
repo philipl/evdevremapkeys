@@ -1,6 +1,5 @@
 [project]
 name = "evdevremapkeys"
-version = "0.1"
 keywords = ["evdev", "uinput"]
 description = "A daemon to remap key events on linux input devices"
 readme = "README.md"
@@ -10,6 +9,11 @@ authors = [
 license = "MIT"
 
 requires-python = '>=3.9'
+
+dynamic = [
+    "urls",
+    "version",
+]
 
 dependencies = [
     "evdev >= 1.3.0",
@@ -21,8 +25,6 @@ dependencies = [
 [project.scripts]
 evdevremapkeys = "evdevremapkeys.evdevremapkeys:main"
 
-[project.urls]
-Homepage = "https://github.com/philipl/evdevremapkeys"
 
 [dependency-groups]
 dev = [
@@ -32,8 +34,11 @@ dev = [
 ]
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
 
 [tool.hatch.build.targets.sdist]
 exclude = [
