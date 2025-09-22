@@ -26,12 +26,11 @@ import asyncio
 import functools
 import signal
 from asyncio.events import AbstractEventLoop
-from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, Collection, Optional, Sequence, TypedDict, cast
 
 import evdev
-import pyudev
+import pyudev  # type: ignore
 import yaml
 from evdev import InputDevice, InputEvent, KeyEvent, UInput, ecodes
 from xdg import BaseDirectory
@@ -44,9 +43,12 @@ registered_devices: dict[str, dict[str, Any]] = {}
 
 class Remapping(TypedDict):
     code: int
-    value: list[int]
-    repeat: bool
-    count: int
+    type: Optional[int]
+    value: Optional[list[int]]
+    repeat: Optional[bool]
+    delay: Optional[bool]
+    rate: Optional[float]
+    count: Optional[int]
     modifier_group: str
 
 
@@ -145,6 +147,7 @@ def remap_event(output: UInput, event: InputEvent, event_remapping: list[Remappi
             key_down = event.value == 1
             key_up = event.value == 0
             count = remapping.get("count", 0)
+            assert type(count) is int, "Count must be an integer"
 
             if not (key_up or key_down):
                 return
@@ -170,6 +173,7 @@ def remap_event(output: UInput, event: InputEvent, event_remapping: list[Remappi
                 if ignore_key_up and key_up:
                     return
                 rate = remapping.get("rate", DEFAULT_RATE)
+                assert type(rate) is float, "Rate must be a float"
                 repeat_task = repeat_tasks.pop(original_code, None)
                 if repeat_task:
                     repeat_task.cancel()
@@ -416,7 +420,7 @@ def run_loop(args: argparse.Namespace):
     loop = asyncio.get_event_loop()
 
     config = load_config(args.config_file)
-    tasks: Iterable[asyncio.Task] = []
+    tasks: list[asyncio.Task] = []
     for device in config["devices"]:
         task = register_device(device, loop)
         if task:

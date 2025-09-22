@@ -31,6 +31,8 @@ dev = [
     "pytest >= 7.4.4",
     "pyinstaller >= 6.11.0",
     "staticx >= 0.9.1",
+    "types-pyyaml >= 6.0.12.20250516",
+    "types-pyxdg >= 0.28.0.20250622",
 ]
 
 [build-system]
