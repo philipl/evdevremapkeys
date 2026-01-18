@@ -417,7 +417,7 @@ def run_loop(args: argparse.Namespace):
     fd = monitor.fileno()
     monitor.start()
 
-    loop = asyncio.get_event_loop()
+    loop = asyncio.new_event_loop()
 
     config = load_config(args.config_file)
     tasks: list[asyncio.Task] = []
