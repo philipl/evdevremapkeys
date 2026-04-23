@@ -37,9 +37,6 @@ from evdev import InputDevice, InputEvent, KeyEvent, UInput, ecodes
 from xdg import BaseDirectory
 
 DEFAULT_RATE = 0.1  # seconds
-repeat_tasks: dict[int, asyncio.Task] = {}
-remapped_tasks: dict[int, int] = {}
-registered_devices: dict[str, dict[str, Any]] = {}
 
 
 class Remapping(TypedDict):
@@ -74,49 +71,6 @@ class ActiveGroup(TypedDict):
     code: int
 
 
-async def handle_events(
-    input: InputDevice,
-    output: UInput,
-    remappings: Remappings,
-    modifier_groups: ModifierGroups,
-):
-    active_group: Optional[ActiveGroup] = None
-    try:
-        async for event in input.async_read_loop():
-            event = cast(InputEvent, event)
-            if not active_group:
-                active_mappings = remappings
-            else:
-                active_mappings = modifier_groups[active_group["name"]]
-
-            if (active_group and event.code == active_group.get("code")) or (
-                event.code in active_mappings
-                and "modifier_group" in active_mappings[event.code][0]
-            ):
-                if event.value == 1:
-                    active_group = {
-                        "name": active_mappings[event.code][0]["modifier_group"],
-                        "code": event.code,
-                    }
-                elif event.value == 0:
-                    active_group = None
-            else:
-                if event.code in active_mappings:
-                    remap_event(output, event, active_mappings[event.code])
-                else:
-                    output.write_event(event)
-                    output.syn()
-    finally:
-        entry = registered_devices.pop(input.path, None)
-        if entry and "output" in entry:
-            entry["output"].close()
-        print(
-            f"Unregistered: {input.name}, {input.path}, {input.phys}",
-            flush=True,
-        )
-        input.close()
-
-
 async def repeat_event(
     event: InputEvent, rate: float, count: int, values: list[int], output: UInput
 ):
@@ -138,90 +92,267 @@ def remap_plain(output: UInput, event: InputEvent, values: list[int]):
         output.syn()
 
 
-def remap_delay(
-    output: UInput,
-    event: InputEvent,
-    remapping: Remapping,
-    original_code: int,
-    original_value: int,
-):
-    count = remapping.get("count", 0)
-    if not isinstance(count, int):
-        raise ValueError("Count must be an integer")
+class Daemon:
+    def __init__(self):
+        self.repeat_tasks: dict[int, asyncio.Task] = {}
+        self.remapped_tasks: dict[int, int] = {}
+        self.registered_devices: dict[str, dict[str, Any]] = {}
 
-    key_down = original_value == 1
-    key_up = original_value == 0
-    if not (key_up or key_down):
-        return
+    async def handle_events(
+        self,
+        input: InputDevice,
+        output: UInput,
+        remappings: Remappings,
+        modifier_groups: ModifierGroups,
+    ):
+        active_group: Optional[ActiveGroup] = None
+        try:
+            async for event in input.async_read_loop():
+                event = cast(InputEvent, event)
+                if not active_group:
+                    active_mappings = remappings
+                else:
+                    active_mappings = modifier_groups[active_group["name"]]
 
-    if original_code not in remapped_tasks or remapped_tasks[original_code] == 0:
-        if key_down:
-            remapped_tasks[original_code] = count
-    else:
-        if key_down:
-            remapped_tasks[original_code] -= 1
-
-    if remapped_tasks.get(original_code) == count:
-        output.write_event(event)
-        output.syn()
-
-
-def remap_repeat(
-    output: UInput,
-    event: InputEvent,
-    remapping: Remapping,
-    original_code: int,
-    original_value: int,
-    values: list[int],
-):
-    count = remapping.get("count", 0)
-    if not isinstance(count, int):
-        raise ValueError("Count must be an integer")
-
-    key_down = original_value == 1
-    key_up = original_value == 0
-    if not (key_up or key_down):
-        return
-
-    # count > 0  - ignore key-up events
-    # count is 0 - repeat until key-up occurs
-    ignore_key_up = count > 0
-
-    if ignore_key_up and key_up:
-        return
-    rate = remapping.get("rate", DEFAULT_RATE)
-    if not isinstance(rate, float):
-        raise ValueError("Rate must be a float")
-    repeat_task = repeat_tasks.pop(original_code, None)
-    if repeat_task:
-        repeat_task.cancel()
-    if key_down:
-        repeat_ev = InputEvent(
-            event.sec, event.usec, event.type, event.code, event.value
-        )
-        repeat_tasks[original_code] = asyncio.create_task(
-            repeat_event(repeat_ev, rate, count, values, output)
-        )
-
-
-def remap_event(output: UInput, event: InputEvent, event_remapping: list[Remapping]):
-    original_type = event.type
-    original_value = event.value
-    original_code = event.code
-    for remapping in event_remapping:
-        event.code = remapping["code"]
-        event.type = remapping.get("type", None) or original_type
-        values = remapping.get("value", None) or [original_value]
-        repeat = remapping.get("repeat", False)
-        delay = remapping.get("delay", False)
-        if not repeat and not delay:
-            remap_plain(output, event, values)
-        elif delay:
-            remap_delay(output, event, remapping, original_code, original_value)
-        elif repeat:
-            remap_repeat(
-                output, event, remapping, original_code, original_value, values
+                if (active_group and event.code == active_group.get("code")) or (
+                    event.code in active_mappings
+                    and "modifier_group" in active_mappings[event.code][0]
+                ):
+                    if event.value == 1:
+                        active_group = {
+                            "name": active_mappings[event.code][0]["modifier_group"],
+                            "code": event.code,
+                        }
+                    elif event.value == 0:
+                        active_group = None
+                else:
+                    if event.code in active_mappings:
+                        self.remap_event(output, event, active_mappings[event.code])
+                    else:
+                        output.write_event(event)
+                        output.syn()
+        finally:
+            entry = self.registered_devices.pop(input.path, None)
+            if entry and "output" in entry:
+                entry["output"].close()
+            print(
+                f"Unregistered: {input.name}, {input.path}, {input.phys}",
+                flush=True,
             )
+            input.close()
+
+    def remap_delay(
+        self,
+        output: UInput,
+        event: InputEvent,
+        remapping: Remapping,
+        original_code: int,
+        original_value: int,
+    ):
+        count = remapping.get("count", 0)
+        if not isinstance(count, int):
+            raise ValueError("Count must be an integer")
+
+        key_down = original_value == 1
+        key_up = original_value == 0
+        if not (key_up or key_down):
+            return
+
+        if (
+            original_code not in self.remapped_tasks
+            or self.remapped_tasks[original_code] == 0
+        ):
+            if key_down:
+                self.remapped_tasks[original_code] = count
+        else:
+            if key_down:
+                self.remapped_tasks[original_code] -= 1
+
+        if self.remapped_tasks.get(original_code) == count:
+            output.write_event(event)
+            output.syn()
+
+    def remap_repeat(
+        self,
+        output: UInput,
+        event: InputEvent,
+        remapping: Remapping,
+        original_code: int,
+        original_value: int,
+        values: list[int],
+    ):
+        count = remapping.get("count", 0)
+        if not isinstance(count, int):
+            raise ValueError("Count must be an integer")
+
+        key_down = original_value == 1
+        key_up = original_value == 0
+        if not (key_up or key_down):
+            return
+
+        # count > 0  - ignore key-up events
+        # count is 0 - repeat until key-up occurs
+        ignore_key_up = count > 0
+
+        if ignore_key_up and key_up:
+            return
+        rate = remapping.get("rate", DEFAULT_RATE)
+        if not isinstance(rate, float):
+            raise ValueError("Rate must be a float")
+        repeat_task = self.repeat_tasks.pop(original_code, None)
+        if repeat_task:
+            repeat_task.cancel()
+        if key_down:
+            repeat_ev = InputEvent(
+                event.sec, event.usec, event.type, event.code, event.value
+            )
+            self.repeat_tasks[original_code] = asyncio.create_task(
+                repeat_event(repeat_ev, rate, count, values, output)
+            )
+
+    def remap_event(
+        self, output: UInput, event: InputEvent, event_remapping: list[Remapping]
+    ):
+        original_type = event.type
+        original_value = event.value
+        original_code = event.code
+        for remapping in event_remapping:
+            event.code = remapping["code"]
+            event.type = remapping.get("type", None) or original_type
+            values = remapping.get("value", None) or [original_value]
+            repeat = remapping.get("repeat", False)
+            delay = remapping.get("delay", False)
+            if not repeat and not delay:
+                remap_plain(output, event, values)
+            elif delay:
+                self.remap_delay(
+                    output, event, remapping, original_code, original_value
+                )
+            elif repeat:
+                self.remap_repeat(
+                    output, event, remapping, original_code, original_value, values
+                )
+
+    def find_input(self, device: Device):
+        name = device.get("input_name", None)
+        phys = device.get("input_phys", None)
+        fn = device.get("input_fn", None)
+
+        if name is None and phys is None and fn is None:
+            raise NameError(
+                "Devices must be identified by at least one "
+                + 'of "input_name", "input_phys", or "input_fn"'
+            )
+
+        devices = [InputDevice(fn) for fn in evdev.list_devices()]
+        for input in devices:
+            if name is not None and input.name != name:
+                continue
+            if phys is not None and input.phys != phys:
+                continue
+            if fn is not None and input.path != fn:
+                continue
+            if input.path in self.registered_devices:
+                continue
+            return input
+        return None
+
+    def register_device(self, device: Device, loop: AbstractEventLoop):
+        for value in self.registered_devices.values():
+            if device == value["device"]:
+                return value["task"]
+
+        input = self.find_input(device)
+        if input is None:
+            return None
+        input.grab()
+
+        caps = cast(dict[int, Sequence[int]], input.capabilities())
+        # EV_SYN is automatically added to uinput devices
+        del caps[ecodes.EV_SYN]
+
+        remappings = device["remappings"]
+        extended = set(caps.get(ecodes.EV_KEY, []))
+
+        modifier_groups: ModifierGroups = {}
+        if "modifier_groups" in device:
+            modifier_groups = device["modifier_groups"]
+
+        def flatmap(lst: Collection[Collection[Any]]):
+            return [l2 for l1 in lst for l2 in l1]
+
+        for remapping in flatmap(remappings.values()):
+            if "code" in remapping:
+                extended.update([remapping["code"]])
+
+        for group in modifier_groups:
+            for remapping in flatmap(modifier_groups[group].values()):
+                if "code" in remapping:
+                    extended.update([remapping["code"]])
+
+        caps[ecodes.EV_KEY] = list(extended)
+        output = UInput(
+            caps, input_props=input.input_props(), name=device["output_name"]
+        )
+        print(f"Registered: {input.name}, {input.path}, {input.phys}", flush=True)
+        task = loop.create_task(
+            self.handle_events(input, output, remappings, modifier_groups),
+            name=input.name,
+        )
+        self.registered_devices[input.path] = {
+            "task": task,
+            "device": device,
+            "input": input,
+            "output": output,
+        }
+        return task
+
+    def handle_udev_event(
+        self, monitor: pyudev.Monitor, config: Config, loop: AbstractEventLoop
+    ):
+        count = 0
+        while True:
+            device = monitor.poll(0)
+            if device is None:
+                break
+            if device.action != "add":
+                continue
+            count += 1
+
+        if count:
+            for device in config["devices"]:
+                self.register_device(device, loop)
+
+    def run(self, config: Config):
+        context = pyudev.Context()
+        monitor = pyudev.Monitor.from_netlink(context)
+        monitor.filter_by("input")
+        fd = monitor.fileno()
+        monitor.start()
+
+        loop = asyncio.new_event_loop()
+
+        tasks: list[asyncio.Task] = []
+        for device in config["devices"]:
+            task = self.register_device(device, loop)
+            if task:
+                tasks.append(task)
+
+        if not tasks:
+            print("No configured devices detected at startup.", flush=True)
+
+        loop.add_signal_handler(
+            signal.SIGTERM, functools.partial(create_shutdown_task, loop)
+        )
+        loop.add_reader(fd, self.handle_udev_event, monitor, config, loop)
+
+        try:
+            loop.run_forever()
+        except KeyboardInterrupt:
+            loop.remove_signal_handler(signal.SIGTERM)
+            loop.run_until_complete(shutdown(loop))
+        finally:
+            loop.close()
 
 
 # Parses yaml config file and outputs normalized configuration.
@@ -356,79 +487,6 @@ def resolve_ecodes(by_name: dict[str | int, list[dict[str, Any]]]) -> Remappings
     )
 
 
-def find_input(device: Device):
-    name = device.get("input_name", None)
-    phys = device.get("input_phys", None)
-    fn = device.get("input_fn", None)
-
-    if name is None and phys is None and fn is None:
-        raise NameError(
-            "Devices must be identified by at least one "
-            + 'of "input_name", "input_phys", or "input_fn"'
-        )
-
-    devices = [InputDevice(fn) for fn in evdev.list_devices()]
-    for input in devices:
-        if name is not None and input.name != name:
-            continue
-        if phys is not None and input.phys != phys:
-            continue
-        if fn is not None and input.path != fn:
-            continue
-        if input.path in registered_devices:
-            continue
-        return input
-    return None
-
-
-def register_device(device: Device, loop: AbstractEventLoop):
-    for value in registered_devices.values():
-        if device == value["device"]:
-            return value["task"]
-
-    input = find_input(device)
-    if input is None:
-        return None
-    input.grab()
-
-    caps = cast(dict[int, Sequence[int]], input.capabilities())
-    # EV_SYN is automatically added to uinput devices
-    del caps[ecodes.EV_SYN]
-
-    remappings = device["remappings"]
-    extended = set(caps.get(ecodes.EV_KEY, []))
-
-    modifier_groups: ModifierGroups = {}
-    if "modifier_groups" in device:
-        modifier_groups = device["modifier_groups"]
-
-    def flatmap(lst: Collection[Collection[Any]]):
-        return [l2 for l1 in lst for l2 in l1]
-
-    for remapping in flatmap(remappings.values()):
-        if "code" in remapping:
-            extended.update([remapping["code"]])
-
-    for group in modifier_groups:
-        for remapping in flatmap(modifier_groups[group].values()):
-            if "code" in remapping:
-                extended.update([remapping["code"]])
-
-    caps[ecodes.EV_KEY] = list(extended)
-    output = UInput(caps, input_props=input.input_props(), name=device["output_name"])
-    print(f"Registered: {input.name}, {input.path}, {input.phys}", flush=True)
-    task = loop.create_task(
-        handle_events(input, output, remappings, modifier_groups), name=input.name
-    )
-    registered_devices[input.path] = {
-        "task": task,
-        "device": device,
-        "input": input,
-        "output": output,
-    }
-    return task
-
-
 async def shutdown(loop: AbstractEventLoop):
     tasks = [
         task
@@ -442,56 +500,8 @@ async def shutdown(loop: AbstractEventLoop):
     return completed_tasks
 
 
-def handle_udev_event(monitor: pyudev.Monitor, config: Config, loop: AbstractEventLoop):
-    count = 0
-    while True:
-        device = monitor.poll(0)
-        if device is None:
-            break
-        if device.action != "add":
-            continue
-        count += 1
-
-    if count:
-        for device in config["devices"]:
-            register_device(device, loop)
-
-
 def create_shutdown_task(loop: AbstractEventLoop):
     return loop.create_task(shutdown(loop))
-
-
-def run_loop(args: argparse.Namespace):
-    context = pyudev.Context()
-    monitor = pyudev.Monitor.from_netlink(context)
-    monitor.filter_by("input")
-    fd = monitor.fileno()
-    monitor.start()
-
-    loop = asyncio.new_event_loop()
-
-    config = load_config(args.config_file)
-    tasks: list[asyncio.Task] = []
-    for device in config["devices"]:
-        task = register_device(device, loop)
-        if task:
-            tasks.append(task)
-
-    if not tasks:
-        print("No configured devices detected at startup.", flush=True)
-
-    loop.add_signal_handler(
-        signal.SIGTERM, functools.partial(create_shutdown_task, loop)
-    )
-    loop.add_reader(fd, handle_udev_event, monitor, config, loop)
-
-    try:
-        loop.run_forever()
-    except KeyboardInterrupt:
-        loop.remove_signal_handler(signal.SIGTERM)
-        loop.run_until_complete(shutdown(loop))
-    finally:
-        loop.close()
 
 
 def list_devices():
@@ -571,7 +581,9 @@ def main():
     elif args.read_events:
         read_events(args.read_events)
     else:
-        run_loop(args)
+        config = load_config(args.config_file)
+        daemon = Daemon()
+        daemon.run(config)
 
 
 if __name__ == "__main__":
