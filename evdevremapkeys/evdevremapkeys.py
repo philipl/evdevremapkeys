@@ -131,6 +131,79 @@ async def repeat_event(
         await asyncio.sleep(rate)
 
 
+def remap_plain(output: UInput, event: InputEvent, values: list[int]):
+    for value in values:
+        event.value = value
+        output.write_event(event)
+        output.syn()
+
+
+def remap_delay(
+    output: UInput,
+    event: InputEvent,
+    remapping: Remapping,
+    original_code: int,
+    original_value: int,
+):
+    count = remapping.get("count", 0)
+    if not isinstance(count, int):
+        raise ValueError("Count must be an integer")
+
+    key_down = original_value == 1
+    key_up = original_value == 0
+    if not (key_up or key_down):
+        return
+
+    if original_code not in remapped_tasks or remapped_tasks[original_code] == 0:
+        if key_down:
+            remapped_tasks[original_code] = count
+    else:
+        if key_down:
+            remapped_tasks[original_code] -= 1
+
+    if remapped_tasks.get(original_code) == count:
+        output.write_event(event)
+        output.syn()
+
+
+def remap_repeat(
+    output: UInput,
+    event: InputEvent,
+    remapping: Remapping,
+    original_code: int,
+    original_value: int,
+    values: list[int],
+):
+    count = remapping.get("count", 0)
+    if not isinstance(count, int):
+        raise ValueError("Count must be an integer")
+
+    key_down = original_value == 1
+    key_up = original_value == 0
+    if not (key_up or key_down):
+        return
+
+    # count > 0  - ignore key-up events
+    # count is 0 - repeat until key-up occurs
+    ignore_key_up = count > 0
+
+    if ignore_key_up and key_up:
+        return
+    rate = remapping.get("rate", DEFAULT_RATE)
+    if not isinstance(rate, float):
+        raise ValueError("Rate must be a float")
+    repeat_task = repeat_tasks.pop(original_code, None)
+    if repeat_task:
+        repeat_task.cancel()
+    if key_down:
+        repeat_ev = InputEvent(
+            event.sec, event.usec, event.type, event.code, event.value
+        )
+        repeat_tasks[original_code] = asyncio.create_task(
+            repeat_event(repeat_ev, rate, count, values, output)
+        )
+
+
 def remap_event(output: UInput, event: InputEvent, event_remapping: list[Remapping]):
     original_type = event.type
     original_value = event.value
@@ -142,53 +215,13 @@ def remap_event(output: UInput, event: InputEvent, event_remapping: list[Remappi
         repeat = remapping.get("repeat", False)
         delay = remapping.get("delay", False)
         if not repeat and not delay:
-            for value in values:
-                event.value = value
-                output.write_event(event)
-                output.syn()
-        else:
-            key_down = original_value == 1
-            key_up = original_value == 0
-            count = remapping.get("count", 0)
-            if not isinstance(count, int):
-                raise ValueError("Count must be an integer")
-
-            if not (key_up or key_down):
-                continue
-            if delay:
-                if (
-                    original_code not in remapped_tasks
-                    or remapped_tasks[original_code] == 0
-                ):
-                    if key_down:
-                        remapped_tasks[original_code] = count
-                else:
-                    if key_down:
-                        remapped_tasks[original_code] -= 1
-
-                if remapped_tasks.get(original_code) == count:
-                    output.write_event(event)
-                    output.syn()
-            elif repeat:
-                # count > 0  - ignore key-up events
-                # count is 0 - repeat until key-up occurs
-                ignore_key_up = count > 0
-
-                if ignore_key_up and key_up:
-                    return
-                rate = remapping.get("rate", DEFAULT_RATE)
-                if not isinstance(rate, float):
-                    raise ValueError("Rate must be a float")
-                repeat_task = repeat_tasks.pop(original_code, None)
-                if repeat_task:
-                    repeat_task.cancel()
-                if key_down:
-                    repeat_ev = InputEvent(
-                        event.sec, event.usec, event.type, event.code, event.value
-                    )
-                    repeat_tasks[original_code] = asyncio.create_task(
-                        repeat_event(repeat_ev, rate, count, values, output)
-                    )
+            remap_plain(output, event, values)
+        elif delay:
+            remap_delay(output, event, remapping, original_code, original_value)
+        elif repeat:
+            remap_repeat(
+                output, event, remapping, original_code, original_value, values
+            )
 
 
 # Parses yaml config file and outputs normalized configuration.
