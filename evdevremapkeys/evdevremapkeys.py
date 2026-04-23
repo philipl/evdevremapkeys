@@ -398,8 +398,10 @@ def handle_udev_event(monitor: pyudev.Monitor, config: Config, loop: AbstractEve
     count = 0
     while True:
         device = monitor.poll(0)
-        if device is None or device.action != "add":
+        if device is None:
             break
+        if device.action != "add":
+            continue
         count += 1
 
     if count:
