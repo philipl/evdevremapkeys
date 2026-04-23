@@ -352,7 +352,7 @@ def register_device(device: Device, loop: AbstractEventLoop):
     del caps[ecodes.EV_SYN]
 
     remappings = device["remappings"]
-    extended = set(caps[ecodes.EV_KEY])
+    extended = set(caps.get(ecodes.EV_KEY, []))
 
     modifier_groups: ModifierGroups = {}
     if "modifier_groups" in device:
