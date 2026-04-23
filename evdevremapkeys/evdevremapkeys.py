@@ -182,8 +182,11 @@ def remap_event(output: UInput, event: InputEvent, event_remapping: list[Remappi
                 if repeat_task:
                     repeat_task.cancel()
                 if key_down:
+                    repeat_ev = InputEvent(
+                        event.sec, event.usec, event.type, event.code, event.value
+                    )
                     repeat_tasks[original_code] = asyncio.create_task(
-                        repeat_event(event, rate, count, values, output)
+                        repeat_event(repeat_ev, rate, count, values, output)
                     )
 
 
