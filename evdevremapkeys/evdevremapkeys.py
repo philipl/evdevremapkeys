@@ -276,7 +276,7 @@ def normalize_config(remappings: dict[str, Any]):
     for key, mappings in remappings.items():
         new_mappings = []
         for mapping in mappings:
-            if type(mapping) is str or type(mapping) is int:
+            if isinstance(mapping, (str, int)):
                 new_mappings.append({"code": mapping})
             else:
                 normalize_value(mapping)
@@ -287,7 +287,7 @@ def normalize_config(remappings: dict[str, Any]):
 
 def normalize_value(mapping: dict[str, Any]):
     value = mapping.get("value")
-    if value is None or type(value) is list:
+    if value is None or isinstance(value, list):
         return
     mapping["value"] = [mapping["value"]]
 
@@ -296,7 +296,7 @@ def resolve_ecodes(by_name: dict[str, Any]):
     def resolve_mapping(mapping):
         if "code" in mapping:
             code = mapping["code"]
-            if type(code) is int:
+            if isinstance(code, int):
                 mapping["code"] = code
             else:
                 mapping["code"] = ecodes.ecodes[mapping["code"]]
@@ -305,7 +305,7 @@ def resolve_ecodes(by_name: dict[str, Any]):
         return mapping
 
     return {
-        key if type(key) is int else ecodes.ecodes[key]: list(
+        key if isinstance(key, int) else ecodes.ecodes[key]: list(
             map(resolve_mapping, mappings)
         )
         for key, mappings in by_name.items()
@@ -482,7 +482,7 @@ def read_events(req_device: str):
                 if categorized.keystate == 1:
                     keycode = (
                         categorized.keycode
-                        if type(categorized.keycode) is str
+                        if isinstance(categorized.keycode, str)
                         else " | ".join(categorized.keycode)
                     )
                     print("Key pressed: %s (%s)" % (keycode, categorized.scancode))
