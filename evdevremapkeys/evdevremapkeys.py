@@ -149,7 +149,8 @@ def remap_event(output: UInput, event: InputEvent, event_remapping: list[Remappi
             key_down = original_value == 1
             key_up = original_value == 0
             count = remapping.get("count", 0)
-            assert type(count) is int, "Count must be an integer"
+            if not isinstance(count, int):
+                raise ValueError("Count must be an integer")
 
             if not (key_up or key_down):
                 continue
@@ -175,7 +176,8 @@ def remap_event(output: UInput, event: InputEvent, event_remapping: list[Remappi
                 if ignore_key_up and key_up:
                     return
                 rate = remapping.get("rate", DEFAULT_RATE)
-                assert type(rate) is float, "Rate must be a float"
+                if not isinstance(rate, float):
+                    raise ValueError("Rate must be a float")
                 repeat_task = repeat_tasks.pop(original_code, None)
                 if repeat_task:
                     repeat_task.cancel()
