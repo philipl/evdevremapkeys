@@ -110,7 +110,7 @@ async def handle_events(
         if entry and "output" in entry:
             entry["output"].close()
         print(
-            "Unregistered: %s, %s, %s" % (input.name, input.path, input.phys),
+            f"Unregistered: {input.name}, {input.path}, {input.phys}",
             flush=True,
         )
         input.close()
@@ -230,7 +230,7 @@ def load_config(config_override: str):
     else:
         conf_path = Path(config_override)
         if not conf_path.is_file():
-            raise NameError("Cannot open %s" % config_override)
+            raise NameError(f"Cannot open {config_override}")
 
     with open(conf_path.as_posix(), "r") as fd:
         config: dict[str, Any] = yaml.safe_load(fd)
@@ -372,7 +372,7 @@ def register_device(device: Device, loop: AbstractEventLoop):
 
     caps[ecodes.EV_KEY] = list(extended)
     output = UInput(caps, input_props=input.input_props(), name=device["output_name"])
-    print("Registered: %s, %s, %s" % (input.name, input.path, input.phys), flush=True)
+    print(f"Registered: {input.name}, {input.path}, {input.phys}", flush=True)
     task = loop.create_task(
         handle_events(input, output, remappings, modifier_groups), name=input.name
     )
@@ -485,12 +485,12 @@ def read_events(req_device: str):
                         if isinstance(categorized.keycode, str)
                         else " | ".join(categorized.keycode)
                     )
-                    print("Key pressed: %s (%s)" % (keycode, categorized.scancode))
+                    print(f"Key pressed: {keycode} ({categorized.scancode})")
         except KeyError:
             if event.value:
-                print("Unknown key (%s) has been pressed." % event.code)
+                print(f"Unknown key ({event.code}) has been pressed.")
             else:
-                print("Unknown key (%s) has been released." % event.code)
+                print(f"Unknown key ({event.code}) has been released.")
 
 
 def main():
@@ -518,7 +518,7 @@ def main():
         print(
             "\n".join(
                 [
-                    '%s:\t"%s" | "%s"' % (path, phys, name)
+                    f'{path}:\t"{phys}" | "{name}"'
                     for (path, phys, name) in list_devices()
                 ]
             )
