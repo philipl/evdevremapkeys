@@ -244,13 +244,24 @@ class Daemon:
                 + 'of "input_name", "input_phys", or "input_fn"'
             )
 
-        devices = [InputDevice(fn) for fn in evdev.list_devices()]
-        for input in devices:
+        if fn is not None:
+            if fn in self.registered_devices:
+                return None
+            try:
+                input = InputDevice(fn)
+            except OSError:
+                return None
+            if name is not None and input.name != name:
+                return None
+            if phys is not None and input.phys != phys:
+                return None
+            return input
+
+        for path in evdev.list_devices():
+            input = InputDevice(path)
             if name is not None and input.name != name:
                 continue
             if phys is not None and input.phys != phys:
-                continue
-            if fn is not None and input.path != fn:
                 continue
             if input.path in self.registered_devices:
                 continue
