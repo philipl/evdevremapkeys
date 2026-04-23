@@ -20,6 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+from __future__ import annotations
 
 import argparse
 import asyncio
@@ -276,10 +277,12 @@ def parse_config(config: dict[str, Any]) -> Config:
 #         {'code': 'KEY_Y', 'value': [1,0]]}
 #     ]
 # }}
-def normalize_config(remappings: dict[str, Any]):
-    norm = {}
+def normalize_config(
+    remappings: dict[str | int, list[str | int | dict[str, Any]]],
+) -> dict[str | int, list[dict[str, Any]]]:
+    norm: dict[str | int, list[dict[str, Any]]] = {}
     for key, mappings in remappings.items():
-        new_mappings = []
+        new_mappings: list[dict[str, Any]] = []
         for mapping in mappings:
             if isinstance(mapping, (str, int)):
                 new_mappings.append({"code": mapping})
@@ -290,15 +293,15 @@ def normalize_config(remappings: dict[str, Any]):
     return norm
 
 
-def normalize_value(mapping: dict[str, Any]):
+def normalize_value(mapping: dict[str, Any]) -> None:
     value = mapping.get("value")
     if value is None or isinstance(value, list):
         return
     mapping["value"] = [mapping["value"]]
 
 
-def resolve_ecodes(by_name: dict[str, Any]):
-    def resolve_mapping(mapping):
+def resolve_ecodes(by_name: dict[str | int, list[dict[str, Any]]]) -> Remappings:
+    def resolve_mapping(mapping: dict[str, Any]) -> dict[str, Any]:
         if "code" in mapping:
             code = mapping["code"]
             if isinstance(code, int):
@@ -309,12 +312,15 @@ def resolve_ecodes(by_name: dict[str, Any]):
             mapping["type"] = ecodes.ecodes[mapping["type"]]
         return mapping
 
-    return {
-        key if isinstance(key, int) else ecodes.ecodes[key]: list(
-            map(resolve_mapping, mappings)
-        )
-        for key, mappings in by_name.items()
-    }
+    return cast(
+        Remappings,
+        {
+            key if isinstance(key, int) else ecodes.ecodes[key]: list(
+                map(resolve_mapping, mappings)
+            )
+            for key, mappings in by_name.items()
+        },
+    )
 
 
 def find_input(device: Device):
