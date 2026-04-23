@@ -162,7 +162,7 @@ def remap_event(output: UInput, event: InputEvent, event_remapping: list[Remappi
                     if key_down:
                         remapped_tasks[original_code] -= 1
 
-                if remapped_tasks[original_code] == count:
+                if remapped_tasks.get(original_code) == count:
                     output.write_event(event)
                     output.syn()
             elif repeat:
