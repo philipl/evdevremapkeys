@@ -391,7 +391,8 @@ async def shutdown(loop: AbstractEventLoop):
         for task in asyncio.all_tasks(loop)
         if task is not asyncio.tasks.current_task(loop)
     ]
-    list(map(lambda task: task.cancel(), tasks))
+    for task in tasks:
+        task.cancel()
     completed_tasks = await asyncio.gather(*tasks, return_exceptions=True)
     loop.stop()
     return completed_tasks
