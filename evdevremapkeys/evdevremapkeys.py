@@ -106,7 +106,9 @@ async def handle_events(
                     output.write_event(event)
                     output.syn()
     finally:
-        del registered_devices[input.path]
+        entry = registered_devices.pop(input.path, None)
+        if entry and "output" in entry:
+            entry["output"].close()
         print(
             "Unregistered: %s, %s, %s" % (input.name, input.path, input.phys),
             flush=True,
@@ -378,6 +380,7 @@ def register_device(device: Device, loop: AbstractEventLoop):
         "task": task,
         "device": device,
         "input": input,
+        "output": output,
     }
     return task
 
