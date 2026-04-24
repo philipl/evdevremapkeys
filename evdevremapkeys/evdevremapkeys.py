@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import errno
 import functools
 import signal
 from asyncio.events import AbstractEventLoop
@@ -276,7 +277,22 @@ class Daemon:
         input = self.find_input(device)
         if input is None:
             return None
-        input.grab()
+        try:
+            input.grab()
+        except OSError as e:
+            if e.errno == errno.EBUSY:
+                print(
+                    f"Cannot grab {input.name} ({input.path}): device is busy. "
+                    "Is another instance of evdevremapkeys already running?",
+                    flush=True,
+                )
+            else:
+                print(
+                    f"Cannot grab {input.name} ({input.path}): {e}",
+                    flush=True,
+                )
+            input.close()
+            raise SystemExit(1)
 
         caps = cast(dict[int, Sequence[int]], input.capabilities())
         # EV_SYN is automatically added to uinput devices
