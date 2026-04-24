@@ -28,6 +28,9 @@ jobs:
       - name: Lint with ruff
         run: |
           uvx ruff check
+        name: Check types with mypy
+        run: |
+          uv run mypy
       - name: Run unit tests
         run: |
           uv run pytest

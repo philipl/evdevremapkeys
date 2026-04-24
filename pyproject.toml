@@ -28,6 +28,7 @@ evdevremapkeys = "evdevremapkeys.evdevremapkeys:main"
 
 [dependency-groups]
 dev = [
+    "mypy >= 1.11.0",
     "pytest >= 7.4.4",
     "pyinstaller >= 6.11.0",
     "staticx >= 0.9.1",

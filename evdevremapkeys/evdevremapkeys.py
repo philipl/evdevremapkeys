@@ -94,7 +94,7 @@ def remap_plain(output: UInput, event: InputEvent, values: list[int]):
 
 
 class Daemon:
-    def __init__(self):
+    def __init__(self) -> None:
         self.repeat_tasks: dict[int, asyncio.Task] = {}
         self.remapped_tasks: dict[int, int] = {}
         self.registered_devices: dict[str, dict[str, Any]] = {}
