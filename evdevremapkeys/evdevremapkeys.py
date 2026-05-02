@@ -389,8 +389,9 @@ async def shutdown(loop: AbstractEventLoop):
         if task is not asyncio.tasks.current_task(loop)
     ]
     list(map(lambda task: task.cancel(), tasks))
-    await asyncio.gather(*tasks, return_exceptions=True)
+    completed_tasks = await asyncio.gather(*tasks, return_exceptions=True)
     loop.stop()
+    return completed_tasks
 
 
 def handle_udev_event(monitor: pyudev.Monitor, config: Config, loop: AbstractEventLoop):
