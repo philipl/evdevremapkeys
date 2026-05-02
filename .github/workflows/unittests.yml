@@ -28,10 +28,10 @@ jobs:
       - name: Lint with ruff
         run: |
           uv run ruff check
-        name: Check types with mypy
+      - name: Check types with mypy
         run: |
           uv run mypy .
-        name: Chek with pyright
+      - name: Chcek with pyright
         run: |
           uv run pyright
       - name: Run unit tests
