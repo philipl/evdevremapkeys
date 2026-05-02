@@ -150,7 +150,7 @@ def remap_event(output: UInput, event: InputEvent, event_remapping: list[Remappi
             assert type(count) is int, "Count must be an integer"
 
             if not (key_up or key_down):
-                return
+                continue
             if delay:
                 if (
                     original_code not in remapped_tasks
