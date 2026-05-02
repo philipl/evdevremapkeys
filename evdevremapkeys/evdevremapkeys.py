@@ -144,8 +144,8 @@ def remap_event(output: UInput, event: InputEvent, event_remapping: list[Remappi
                 output.write_event(event)
                 output.syn()
         else:
-            key_down = event.value == 1
-            key_up = event.value == 0
+            key_down = original_value == 1
+            key_up = original_value == 0
             count = remapping.get("count", 0)
             assert type(count) is int, "Count must be an integer"
 
