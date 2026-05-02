@@ -56,8 +56,9 @@ ModifierGroups = dict[str, Remappings]
 
 
 class Device(TypedDict):
-    input_name: str
-    input_fn: str
+    input_name: Optional[str]
+    input_phys: Optional[str]
+    input_fn: Optional[str]
     output_name: str
     remappings: Remappings
     modifier_groups: ModifierGroups
@@ -415,7 +416,7 @@ class Daemon:
 #        'mod1': { -- is the same as 'remappings' --}
 #    }
 #  }]
-def load_config(config_override: str):
+def load_config(config_override: str | None) -> Config:
     conf_path = None
     if config_override is None:
         for dir in BaseDirectory.load_config_paths("evdevremapkeys"):
