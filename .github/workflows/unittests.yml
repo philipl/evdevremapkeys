@@ -24,13 +24,16 @@ jobs:
           pip install uv
       - name: Check formatting with ruff
         run: |
-          uvx ruff format --diff
+          uv run ruff format --diff
       - name: Lint with ruff
         run: |
-          uvx ruff check
+          uv run ruff check
         name: Check types with mypy
         run: |
-          uv run mypy
+          uv run mypy .
+        name: Chek with pyright
+        run: |
+          uv run pyright
       - name: Run unit tests
         run: |
           uv run pytest
