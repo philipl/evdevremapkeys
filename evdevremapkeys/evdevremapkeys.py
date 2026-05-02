@@ -29,7 +29,15 @@ import functools
 import signal
 from asyncio.events import AbstractEventLoop
 from pathlib import Path
-from typing import Any, Collection, Optional, Sequence, TypedDict, cast
+from typing import (
+    Any,
+    Collection,
+    Optional,
+    Protocol,
+    Sequence,
+    TypedDict,
+    cast,
+)
 
 import evdev
 import pyudev  # type: ignore
@@ -40,14 +48,22 @@ from xdg import BaseDirectory
 DEFAULT_RATE = 0.1  # seconds
 
 
-class Remapping(TypedDict):
+class EventSink(Protocol):
+    def write_event(self, event: InputEvent) -> None: ...
+    def syn(self) -> None: ...
+
+
+class _RemappingRequired(TypedDict):
     code: int
-    type: Optional[int]
-    value: Optional[list[int]]
-    repeat: Optional[bool]
-    delay: Optional[bool]
-    rate: Optional[float]
-    count: Optional[int]
+
+
+class Remapping(_RemappingRequired, total=False):
+    type: int
+    value: list[int]
+    repeat: bool
+    delay: bool
+    rate: float
+    count: int
     modifier_group: str
 
 
@@ -55,12 +71,15 @@ Remappings = dict[int, list[Remapping]]
 ModifierGroups = dict[str, Remappings]
 
 
-class Device(TypedDict):
-    input_name: Optional[str]
-    input_phys: Optional[str]
-    input_fn: Optional[str]
+class _DeviceRequired(TypedDict):
     output_name: str
     remappings: Remappings
+
+
+class Device(_DeviceRequired, total=False):
+    input_name: str
+    input_phys: str
+    input_fn: str
     modifier_groups: ModifierGroups
 
 
@@ -74,7 +93,7 @@ class ActiveGroup(TypedDict):
 
 
 async def repeat_event(
-    event: InputEvent, rate: float, count: int, values: list[int], output: UInput
+    event: InputEvent, rate: float, count: int, values: list[int], output: EventSink
 ):
     if count == 0:
         count = -1
@@ -87,7 +106,7 @@ async def repeat_event(
         await asyncio.sleep(rate)
 
 
-def remap_plain(output: UInput, event: InputEvent, values: list[int]):
+def remap_plain(output: EventSink, event: InputEvent, values: list[int]):
     for value in values:
         event.value = value
         output.write_event(event)
@@ -103,7 +122,7 @@ class Daemon:
     async def handle_events(
         self,
         input: InputDevice,
-        output: UInput,
+        output: EventSink,
         remappings: Remappings,
         modifier_groups: ModifierGroups,
     ):
@@ -122,7 +141,9 @@ class Daemon:
                 ):
                     if event.value == 1:
                         active_group = {
-                            "name": active_mappings[event.code][0]["modifier_group"],
+                            "name": active_mappings[event.code][0].get(
+                                "modifier_group", ""
+                            ),
                             "code": event.code,
                         }
                     elif event.value == 0:
@@ -145,7 +166,7 @@ class Daemon:
 
     def remap_delay(
         self,
-        output: UInput,
+        output: EventSink,
         event: InputEvent,
         remapping: Remapping,
         original_code: int,
@@ -176,7 +197,7 @@ class Daemon:
 
     def remap_repeat(
         self,
-        output: UInput,
+        output: EventSink,
         event: InputEvent,
         remapping: Remapping,
         original_code: int,
@@ -213,7 +234,10 @@ class Daemon:
             )
 
     def remap_event(
-        self, output: UInput, event: InputEvent, event_remapping: list[Remapping]
+        self,
+        output: EventSink,
+        event: InputEvent,
+        event_remapping: Sequence[Remapping],
     ):
         original_type = event.type
         original_value = event.value
