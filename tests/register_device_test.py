@@ -239,6 +239,87 @@ class TestRegisterDeviceCapabilityExtension:
             loop.close()
 
 
+class TestRegisterDeviceUInputArgs:
+    def test_passes_id_overrides_to_uinput(self):
+        daemon = Daemon()
+        loop = make_loop()
+        try:
+            input = make_input_device(
+                {ecodes.EV_SYN: [0], ecodes.EV_KEY: [ecodes.KEY_A]}
+            )
+            captured = {}
+
+            def fake_uinput(caps, **kwargs):
+                captured["kwargs"] = kwargs
+                return MagicMock()
+
+            device = device_config(
+                input_name="dev",
+                output_name="out",
+                remappings={},
+                vendor=0x046D,
+                product=0xC21D,
+                version=0x0001,
+                bustype=ecodes.BUS_USB,
+            )
+            with (
+                patch.object(daemon, "find_input", return_value=input),
+                patch("evdevremapkeys.evdevremapkeys.UInput", side_effect=fake_uinput),
+            ):
+                task = daemon.register_device(device, loop)
+            assert task is not None
+            task.cancel()
+            try:
+                loop.run_until_complete(task)
+            except asyncio.CancelledError:
+                pass
+
+            kwargs = captured["kwargs"]
+            assert kwargs["name"] == "out"
+            assert kwargs["vendor"] == 0x046D
+            assert kwargs["product"] == 0xC21D
+            assert kwargs["version"] == 0x0001
+            assert kwargs["bustype"] == ecodes.BUS_USB
+        finally:
+            loop.close()
+
+    def test_omits_id_kwargs_when_unset(self):
+        daemon = Daemon()
+        loop = make_loop()
+        try:
+            input = make_input_device(
+                {ecodes.EV_SYN: [0], ecodes.EV_KEY: [ecodes.KEY_A]}
+            )
+            captured = {}
+
+            def fake_uinput(caps, **kwargs):
+                captured["kwargs"] = kwargs
+                return MagicMock()
+
+            device = device_config(
+                input_name="dev",
+                output_name="out",
+                remappings={},
+            )
+            with (
+                patch.object(daemon, "find_input", return_value=input),
+                patch("evdevremapkeys.evdevremapkeys.UInput", side_effect=fake_uinput),
+            ):
+                task = daemon.register_device(device, loop)
+            assert task is not None
+            task.cancel()
+            try:
+                loop.run_until_complete(task)
+            except asyncio.CancelledError:
+                pass
+
+            kwargs = captured["kwargs"]
+            for key in ("vendor", "product", "version", "bustype"):
+                assert key not in kwargs
+        finally:
+            loop.close()
+
+
 class TestRegisterDeviceErrorPaths:
     def test_ebusy_raises_system_exit(self):
         daemon = Daemon()

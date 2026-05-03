@@ -163,3 +163,33 @@ def test_resolves_extra_keys_names_and_ints():
         ecodes.BTN_EAST,
         304,
     ]
+
+
+bustype_name_config_data = """
+devices:
+- input_name: ''
+  output_name: ''
+  remappings: {}
+  bustype: BUS_USB
+"""
+
+
+def test_resolves_bustype_name_to_int():
+    config = yaml.safe_load(io.StringIO(bustype_name_config_data))
+    parsed = parse_config(config)
+    assert parsed["devices"][0]["bustype"] == ecodes.BUS_USB
+
+
+bustype_int_config_data = """
+devices:
+- input_name: ''
+  output_name: ''
+  remappings: {}
+  bustype: 3
+"""
+
+
+def test_passes_bustype_int_through():
+    config = yaml.safe_load(io.StringIO(bustype_int_config_data))
+    parsed = parse_config(config)
+    assert parsed["devices"][0]["bustype"] == 3

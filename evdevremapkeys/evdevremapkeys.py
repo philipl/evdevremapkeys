@@ -82,6 +82,10 @@ class Device(_DeviceRequired, total=False):
     input_fn: str
     modifier_groups: ModifierGroups
     extra_keys: list[int]
+    vendor: int
+    product: int
+    version: int
+    bustype: int
 
 
 class Config(TypedDict):
@@ -345,9 +349,15 @@ class Daemon:
                     extended.update([remapping["code"]])
 
         caps[ecodes.EV_KEY] = list(extended)
-        output = UInput(
-            caps, input_props=input.input_props(), name=device["output_name"]
-        )
+        uinput_kwargs: dict[str, Any] = {
+            "input_props": input.input_props(),
+            "name": device["output_name"],
+        }
+        device_any = cast(dict[str, Any], device)
+        for key in ("vendor", "product", "version", "bustype"):
+            if key in device_any:
+                uinput_kwargs[key] = device_any[key]
+        output = UInput(caps, **uinput_kwargs)
         print(f"Registered: {input.name}, {input.path}, {input.phys}", flush=True)
         task = loop.create_task(
             self.handle_events(input, output, remappings, modifier_groups),
@@ -443,8 +453,14 @@ class Daemon:
 #    },
 #    'extra_keys': [      # EV_KEY codes to advertise on the output device
 #      304, 305           # in addition to those copied from the input.
-#    ]                    # Useful for buttonless devices that consumers
+#    ],                   # Useful for buttonless devices that consumers
 #                         # like wine refuse to recognise. [optional]
+#    'vendor':  0x046d,   # Override the synthetic uinput device's IDs so
+#    'product': 0xc21d,   # wine/Steam/proton see them as a real device.
+#    'version': 0x0001,   # All four are optional; defaults are
+#    'bustype': 'BUS_USB' # 0x1/0x1/0x1/BUS_USB. bustype accepts a name
+#                         # or int. NOTE: misrepresents the virtual device
+#                         # to userspace -- only override deliberately.
 #  }]
 def load_config(config_override: str | None) -> Config:
     conf_path = None
@@ -482,6 +498,8 @@ def parse_config(config: dict[str, Any]) -> Config:
                 k if isinstance(k, int) else ecodes.ecodes[k]
                 for k in device["extra_keys"]
             ]
+        if "bustype" in device and isinstance(device["bustype"], str):
+            device["bustype"] = ecodes.ecodes[device["bustype"]]
 
     return cast(Config, config)
 
