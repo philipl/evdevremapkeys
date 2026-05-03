@@ -81,6 +81,7 @@ class Device(_DeviceRequired, total=False):
     input_phys: str
     input_fn: str
     modifier_groups: ModifierGroups
+    extra_keys: list[int]
 
 
 class Config(TypedDict):
@@ -325,6 +326,7 @@ class Daemon:
 
         remappings = device["remappings"]
         extended = set(caps.get(ecodes.EV_KEY, []))
+        extended.update(device.get("extra_keys", []))
 
         modifier_groups: ModifierGroups = {}
         if "modifier_groups" in device:
@@ -438,7 +440,11 @@ class Daemon:
 #    },
 #    'modifier_groups': {
 #        'mod1': { -- is the same as 'remappings' --}
-#    }
+#    },
+#    'extra_keys': [      # EV_KEY codes to advertise on the output device
+#      304, 305           # in addition to those copied from the input.
+#    ]                    # Useful for buttonless devices that consumers
+#                         # like wine refuse to recognise. [optional]
 #  }]
 def load_config(config_override: str | None) -> Config:
     conf_path = None
@@ -471,6 +477,11 @@ def parse_config(config: dict[str, Any]) -> Config:
                 device["modifier_groups"][group] = resolve_ecodes(
                     device["modifier_groups"][group]
                 )
+        if "extra_keys" in device:
+            device["extra_keys"] = [
+                k if isinstance(k, int) else ecodes.ecodes[k]
+                for k in device["extra_keys"]
+            ]
 
     return cast(Config, config)
 

@@ -121,6 +121,86 @@ class TestRegisterDeviceCapabilityExtension:
         finally:
             loop.close()
 
+    def test_extends_ev_key_with_extra_keys(self):
+        daemon = Daemon()
+        loop = make_loop()
+        try:
+            input = make_input_device(
+                {
+                    ecodes.EV_SYN: [0],
+                    ecodes.EV_KEY: [ecodes.KEY_A],
+                }
+            )
+            captured = {}
+
+            def fake_uinput(caps, **kwargs):
+                captured["caps"] = caps
+                return MagicMock()
+
+            device = device_config(
+                input_name="dev",
+                output_name="out",
+                remappings={},
+                extra_keys=[ecodes.BTN_SOUTH, ecodes.BTN_EAST],
+            )
+            with (
+                patch.object(daemon, "find_input", return_value=input),
+                patch("evdevremapkeys.evdevremapkeys.UInput", side_effect=fake_uinput),
+            ):
+                task = daemon.register_device(device, loop)
+            assert task is not None
+            task.cancel()
+            try:
+                loop.run_until_complete(task)
+            except asyncio.CancelledError:
+                pass
+
+            ev_key = set(captured["caps"][ecodes.EV_KEY])
+            assert {ecodes.KEY_A, ecodes.BTN_SOUTH, ecodes.BTN_EAST}.issubset(ev_key)
+        finally:
+            loop.close()
+
+    def test_extra_keys_on_buttonless_device(self):
+        """A device that exposes no EV_KEY at all can still advertise buttons
+        on the output via extra_keys (Steam/wine recognition workaround)."""
+        daemon = Daemon()
+        loop = make_loop()
+        try:
+            input = make_input_device(
+                {
+                    ecodes.EV_SYN: [0],
+                    # No EV_KEY at all
+                }
+            )
+            captured = {}
+
+            def fake_uinput(caps, **kwargs):
+                captured["caps"] = caps
+                return MagicMock()
+
+            device = device_config(
+                input_name="dev",
+                output_name="out",
+                remappings={},
+                extra_keys=[ecodes.BTN_SOUTH],
+            )
+            with (
+                patch.object(daemon, "find_input", return_value=input),
+                patch("evdevremapkeys.evdevremapkeys.UInput", side_effect=fake_uinput),
+            ):
+                task = daemon.register_device(device, loop)
+            assert task is not None
+            task.cancel()
+            try:
+                loop.run_until_complete(task)
+            except asyncio.CancelledError:
+                pass
+
+            ev_key = set(captured["caps"][ecodes.EV_KEY])
+            assert ev_key == {ecodes.BTN_SOUTH}
+        finally:
+            loop.close()
+
     def test_handles_device_without_ev_key(self):
         """register_device should not crash when input.capabilities() has no
         EV_KEY entry (regression for commit d19fbbd)."""

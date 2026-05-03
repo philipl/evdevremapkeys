@@ -141,3 +141,25 @@ def test_mod_group_accepts_multiple_values(sample_config):
 def test_mod_group_accepts_other_parameters(sample_config):
     mapping = modified_remapping(sample_config, ecodes.KEY_E)
     assert [{"code": 33, "param3": "p1", "param4": "p2"}] == mapping
+
+
+extra_keys_config_data = """
+devices:
+- input_name: ''
+  output_name: ''
+  remappings: {}
+  extra_keys:
+    - BTN_SOUTH
+    - BTN_EAST
+    - 304
+"""
+
+
+def test_resolves_extra_keys_names_and_ints():
+    config = yaml.safe_load(io.StringIO(extra_keys_config_data))
+    parsed = parse_config(config)
+    assert parsed["devices"][0]["extra_keys"] == [
+        ecodes.BTN_SOUTH,
+        ecodes.BTN_EAST,
+        304,
+    ]

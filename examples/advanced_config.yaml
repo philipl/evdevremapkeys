@@ -47,3 +47,12 @@ devices:
     - code: KEY_A
       value: [1,0,1,0]
       repeat: true
+# Buttonless device example: rudder pedals expose only EV_ABS axes,
+# which may cause it not be recognised as a controller by Wine.
+# Advertise fake buttons on the output so they treat it as a gamepad.
+- input_name: 'Thrustmaster T-Rudder'
+  output_name: 'T-Rudder'
+  remappings: {}
+  extra_keys:
+    - BTN_SOUTH
+    - BTN_EAST
