@@ -158,7 +158,7 @@ devices:
 def test_resolves_extra_keys_names_and_ints():
     config = yaml.safe_load(io.StringIO(extra_keys_config_data))
     parsed = parse_config(config)
-    assert parsed["devices"][0]["extra_keys"] == [
+    assert parsed["devices"][0].get("extra_keys") == [
         ecodes.BTN_SOUTH,
         ecodes.BTN_EAST,
         304,
@@ -177,7 +177,7 @@ devices:
 def test_resolves_bustype_name_to_int():
     config = yaml.safe_load(io.StringIO(bustype_name_config_data))
     parsed = parse_config(config)
-    assert parsed["devices"][0]["bustype"] == ecodes.BUS_USB
+    assert parsed["devices"][0].get("bustype") == ecodes.BUS_USB
 
 
 bustype_int_config_data = """
@@ -192,4 +192,4 @@ devices:
 def test_passes_bustype_int_through():
     config = yaml.safe_load(io.StringIO(bustype_int_config_data))
     parsed = parse_config(config)
-    assert parsed["devices"][0]["bustype"] == 3
+    assert parsed["devices"][0].get("bustype") == 3
